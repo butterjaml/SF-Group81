@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -87,6 +89,40 @@ public class UserCsvRepository {
             return new User(userId, name, staffOrStudentId, email, passwordHash, role, "ACTIVE", "");
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to write users.csv", ex);
+        }
+    }
+
+    public void updateLastLoginAt(String userId) {
+        try {
+            if (Files.notExists(USERS_CSV)) {
+                return;
+            }
+            List<String> lines = Files.readAllLines(USERS_CSV, StandardCharsets.UTF_8);
+            if (lines.size() <= 1) {
+                return;
+            }
+            String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            List<String> updated = new ArrayList<>();
+            updated.add(lines.get(0));
+
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i).trim();
+                if (line.isEmpty()) {
+                    continue;
+                }
+                String[] cols = line.split(",", -1);
+                if (cols.length < 8) {
+                    continue;
+                }
+                if (cols[0].equals(userId)) {
+                    cols[7] = now;
+                }
+                updated.add(String.join(",", cols));
+            }
+
+            Files.write(USERS_CSV, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to update last_login_at in users.csv", ex);
         }
     }
 
