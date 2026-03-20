@@ -4,8 +4,7 @@ import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.ui.auth.LoginPanel;
 
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import java.awt.BorderLayout;
+import javax.swing.JPanel;
 
 public class LoginFrame extends JFrame {
     public LoginFrame() {
@@ -18,8 +17,8 @@ public class LoginFrame extends JFrame {
     }
 
     private void onLoginSuccess(User user) {
-        getContentPane().removeAll();
-        add(new JLabel("Signed in as: " + user.role(), JLabel.CENTER), BorderLayout.CENTER);
+        JPanel roleMenu = MenuRouter.buildRoleMenu(user);
+        setContentPane(roleMenu);
         revalidate();
         repaint();
     }
