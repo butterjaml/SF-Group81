@@ -3,6 +3,7 @@ package com.sfgroup81.tams.service;
 import com.sfgroup81.tams.model.TAPosition;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -15,6 +16,7 @@ public class PositionService {
     }
 
     public List<TAPosition> listAll() {
+        closeExpiredPositions();
         return repository.findAll();
     }
 
@@ -61,5 +63,59 @@ public class PositionService {
                 now
         );
         return repository.saveOrUpdate(saved);
+    }
+
+    public TAPosition unpublish(String positionId) {
+        TAPosition existing = repository.findById(positionId)
+                .orElseThrow(() -> new IllegalArgumentException("Position not found: " + positionId));
+        TAPosition closed = new TAPosition(
+                existing.positionId(),
+                existing.courseId(),
+                existing.semesterId(),
+                existing.positionType(),
+                existing.headcount(),
+                existing.deadline(),
+                "UNPUBLISHED",
+                existing.title(),
+                existing.description(),
+                existing.createdBy(),
+                existing.createdAt(),
+                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        );
+        return repository.saveOrUpdate(closed);
+    }
+
+    public void closeExpiredPositions() {
+        List<TAPosition> positions = repository.findAll();
+        for (TAPosition p : positions) {
+            if (!"PUBLISHED".equalsIgnoreCase(p.status())) {
+                continue;
+            }
+            if (p.deadline() == null || p.deadline().isBlank()) {
+                continue;
+            }
+            try {
+                LocalDate deadline = LocalDate.parse(p.deadline());
+                if (deadline.isBefore(LocalDate.now())) {
+                    TAPosition closed = new TAPosition(
+                            p.positionId(),
+                            p.courseId(),
+                            p.semesterId(),
+                            p.positionType(),
+                            p.headcount(),
+                            p.deadline(),
+                            "CLOSED",
+                            p.title(),
+                            p.description(),
+                            p.createdBy(),
+                            p.createdAt(),
+                            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    );
+                    repository.saveOrUpdate(closed);
+                }
+            } catch (Exception ignored) {
+                // Keep malformed deadline rows unchanged.
+            }
+        }
     }
 }
