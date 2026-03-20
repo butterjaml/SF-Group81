@@ -8,10 +8,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 public class UserCsvRepository {
     private static final Path USERS_CSV = Path.of("data", "users.csv");
@@ -51,6 +51,18 @@ public class UserCsvRepository {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to read users.csv", ex);
         }
+    }
+
+    public Optional<User> findByEmail(String email) {
+        return findAll().stream()
+                .filter(user -> user.email().equalsIgnoreCase(email == null ? "" : email.trim()))
+                .findFirst();
+    }
+
+    public Optional<User> findByStaffOrStudentId(String staffOrStudentId) {
+        return findAll().stream()
+                .filter(user -> user.staffOrStudentId().equalsIgnoreCase(staffOrStudentId == null ? "" : staffOrStudentId.trim()))
+                .findFirst();
     }
 
     public User saveNewUser(String name, String staffOrStudentId, String email, String passwordHash, UserRole role) {
