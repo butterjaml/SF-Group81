@@ -30,13 +30,14 @@ public class PositionManagePanel extends JPanel {
     private final DefaultTableModel tableModel = new DefaultTableModel(
             new Object[]{"ID", "Course", "Semester", "Type", "Headcount", "Deadline", "Status", "Title"}, 0
     );
+    private final JTable table = new JTable(tableModel);
 
     private final PositionService positionService = new PositionService(new PositionCsvRepository());
 
     public PositionManagePanel() {
         setLayout(new BorderLayout());
 
-        JPanel formPanel = new JPanel(new GridLayout(9, 2, 8, 8));
+        JPanel formPanel = new JPanel(new GridLayout(10, 2, 8, 8));
         formPanel.add(new JLabel("Position ID (blank=create):"));
         formPanel.add(positionIdField);
         formPanel.add(new JLabel("Course ID:"));
@@ -61,9 +62,14 @@ public class PositionManagePanel extends JPanel {
         formPanel.add(saveDraftButton);
         formPanel.add(publishButton);
 
-        add(formPanel, BorderLayout.NORTH);
+        JButton unpublishButton = new JButton("Unpublish Selected");
+        unpublishButton.addActionListener(e -> unpublishSelected());
+        JButton refreshButton = new JButton("Refresh Status");
+        refreshButton.addActionListener(e -> refreshTable());
+        formPanel.add(unpublishButton);
+        formPanel.add(refreshButton);
 
-        JTable table = new JTable(tableModel);
+        add(formPanel, BorderLayout.NORTH);
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         refreshTable();
@@ -88,6 +94,22 @@ public class PositionManagePanel extends JPanel {
             refreshTable();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Save Failed", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void unpublishSelected() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow < 0) {
+            JOptionPane.showMessageDialog(this, "Select a position row first.");
+            return;
+        }
+        String positionId = tableModel.getValueAt(selectedRow, 0).toString();
+        try {
+            positionService.unpublish(positionId);
+            refreshTable();
+            JOptionPane.showMessageDialog(this, "Position " + positionId + " is now UNPUBLISHED.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Unpublish Failed", JOptionPane.ERROR_MESSAGE);
         }
     }
 
