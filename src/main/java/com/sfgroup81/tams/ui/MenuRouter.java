@@ -9,12 +9,13 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
+import java.util.function.Consumer;
 
 public final class MenuRouter {
     private MenuRouter() {
     }
 
-    public static JPanel buildRoleMenu(User user) {
+    public static JPanel buildRoleMenu(User user, Consumer<String> actionHandler) {
         JPanel container = new JPanel(new BorderLayout());
         container.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
@@ -27,6 +28,7 @@ public final class MenuRouter {
         for (String action : actionsByRole(user.role())) {
             JButton button = new JButton(action);
             button.setAlignmentX(JButton.LEFT_ALIGNMENT);
+            button.addActionListener(e -> actionHandler.accept(action));
             menu.add(button);
         }
 
