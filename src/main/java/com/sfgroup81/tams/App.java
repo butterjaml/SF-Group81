@@ -1,7 +1,7 @@
 package com.sfgroup81.tams;
 
 import com.sfgroup81.tams.bootstrap.DataBootstrap;
-import com.sfgroup81.tams.ui.BootstrapFrame;
+import com.sfgroup81.tams.ui.LoginFrame;
 import javax.swing.SwingUtilities;
 
 public final class App {
@@ -11,7 +11,7 @@ public final class App {
     public static void main(String[] args) {
         DataBootstrap.initialize();
         SwingUtilities.invokeLater(() -> {
-            BootstrapFrame frame = new BootstrapFrame();
+            LoginFrame frame = new LoginFrame();
             frame.setVisible(true);
         });
     }
