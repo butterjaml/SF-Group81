@@ -1,12 +1,17 @@
-# SF-Group81
+# SF-Group81 - TA Management System
 
-- butterjaml:231224882(组长）
--  xix-ui:2312315100
+## Project Setup
+- Java 17
+- Maven
+- Swing desktop client
+- CSV-based persistence in `data/`
 
-- JiayingzZZ:231224642
+## Run
+```bash
+mvn -q -DskipTests compile
+mvn test
+mvn -q exec:java -Dexec.mainClass="com.sfgroup81.tams.App"
+```
 
-- JiaqiCui77:231224941
-
-- qxy4594:231224594
-
-- JiayiLi2233:231224284
+## Branch Rule
+Follow `docs/branching-strategy.md`.
