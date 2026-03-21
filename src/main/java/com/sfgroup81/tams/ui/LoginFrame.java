@@ -3,6 +3,7 @@ package com.sfgroup81.tams.ui;
 import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.ui.auth.LoginPanel;
 import com.sfgroup81.tams.ui.mo.PositionManagePanel;
+import com.sfgroup81.tams.ui.ta.CourseSelectPanel;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -31,6 +32,8 @@ public class LoginFrame extends JFrame {
     private void handleAction(String action) {
         if ("Job Posting Management".equals(action) && currentUser != null && currentUser.role().name().equals("MO")) {
             setContentPane(new PositionManagePanel());
+        } else if ("One-stop Enrollment".equals(action) && currentUser != null && currentUser.role().name().equals("TA")) {
+            setContentPane(new CourseSelectPanel());
         } else {
             setContentPane(new JLabel("Feature not implemented yet: " + action, JLabel.CENTER));
         }
