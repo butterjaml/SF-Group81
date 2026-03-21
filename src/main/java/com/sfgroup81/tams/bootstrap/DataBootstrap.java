@@ -12,7 +12,8 @@ public final class DataBootstrap {
 
     private static final Map<String, String> BASE_HEADERS = Map.of(
             "users.csv", "user_id,name,staff_or_student_id,email,password_hash,role,status,last_login_at",
-            "ta_positions.csv", "position_id,course_id,semester_id,position_type,headcount,deadline,status,title,description,created_by,created_at,updated_at"
+            "ta_positions.csv", "position_id,course_id,semester_id,position_type,headcount,deadline,status,title,description,created_by,created_at,updated_at",
+            "application_preferences.csv", "preference_id,application_id,course_id,priority_no"
     );
 
     private DataBootstrap() {
