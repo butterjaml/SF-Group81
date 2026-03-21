@@ -4,6 +4,7 @@ import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.ui.auth.LoginPanel;
 import com.sfgroup81.tams.ui.mo.PositionManagePanel;
 import com.sfgroup81.tams.ui.ta.CourseSelectPanel;
+import com.sfgroup81.tams.ui.ta.ResumeUploadPanel;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -34,6 +35,8 @@ public class LoginFrame extends JFrame {
             setContentPane(new PositionManagePanel());
         } else if ("One-stop Enrollment".equals(action) && currentUser != null && currentUser.role().name().equals("TA")) {
             setContentPane(new CourseSelectPanel());
+        } else if ("Upload Resume".equals(action) && currentUser != null && currentUser.role().name().equals("TA")) {
+            setContentPane(new ResumeUploadPanel());
         } else {
             setContentPane(new JLabel("Feature not implemented yet: " + action, JLabel.CENTER));
         }
