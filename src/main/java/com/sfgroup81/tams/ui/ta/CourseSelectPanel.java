@@ -18,13 +18,16 @@ import javax.swing.JTextArea;
 import javax.swing.JList;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
 public class CourseSelectPanel extends JPanel {
+    private static final int MAX_SELECTION = 3;
     private final DefaultListModel<CourseOption> availableModel = new DefaultListModel<>();
     private final JList<CourseOption> availableList = new JList<>(availableModel);
     private final JTextArea selectedPreview = new JTextArea();
+    private boolean selectionAdjusting;
     private final CourseSelectionService service = new CourseSelectionService(
             new PositionCsvRepository(),
             new ApplicationPreferenceCsvRepository()
@@ -33,14 +36,25 @@ public class CourseSelectPanel extends JPanel {
     public CourseSelectPanel() {
         setLayout(new BorderLayout(8, 8));
 
-        JLabel title = new JLabel("One-stop Enrollment: Course Preferences (Multi-select)", JLabel.CENTER);
+        JLabel title = new JLabel("One-stop Enrollment: Course Preferences (up to 3 courses)", JLabel.CENTER);
         add(title, BorderLayout.NORTH);
 
         availableList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         availableList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                renderSelectedPreview();
+            if (selectionAdjusting || e.getValueIsAdjusting()) {
+                return;
             }
+            int[] selected = availableList.getSelectedIndices();
+            if (selected.length > MAX_SELECTION) {
+                selectionAdjusting = true;
+                availableList.setSelectedIndices(Arrays.copyOf(selected, MAX_SELECTION));
+                selectionAdjusting = false;
+                JOptionPane.showMessageDialog(this,
+                        "You can select up to 3 courses only.",
+                        "Selection Limit",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+            renderSelectedPreview();
         });
 
         selectedPreview.setEditable(false);

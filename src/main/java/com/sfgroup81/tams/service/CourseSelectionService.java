@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class CourseSelectionService {
+    private static final int MAX_SELECTION = 3;
     private final PositionCsvRepository positionRepository;
     private final ApplicationPreferenceCsvRepository preferenceRepository;
 
@@ -63,6 +64,9 @@ public class CourseSelectionService {
         }
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException("No valid course selection found");
+        }
+        if (normalized.size() > MAX_SELECTION) {
+            throw new IllegalArgumentException("You can select up to 3 courses only");
         }
         preferenceRepository.saveForApplication(toApplicationId(userId), new ArrayList<>(normalized));
     }
