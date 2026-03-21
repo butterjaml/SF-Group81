@@ -62,8 +62,8 @@ public class ResumeUploadPanel extends JPanel {
             return;
         }
         try {
-            String savedPath = uploadService.uploadResume(user.userId(), selectedFile);
-            JOptionPane.showMessageDialog(this, "Resume uploaded to: " + savedPath);
+            String autoFilename = uploadService.uploadResume(user.userId(), selectedFile);
+            JOptionPane.showMessageDialog(this, "Resume uploaded as: " + autoFilename);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Upload Failed", JOptionPane.ERROR_MESSAGE);
         }
