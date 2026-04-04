@@ -1,1 +1,1 @@
-position_id,course_id,semester_id,position_type,headcount,deadline,status,title,description,created_by,created_at,updated_at
+position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,created_by,created_at,updated_at

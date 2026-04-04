@@ -1,9 +1,10 @@
 package com.sfgroup81.tams.ui.mo;
 
 import com.sfgroup81.tams.model.TAPosition;
-import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.service.PositionService;
+import com.sfgroup81.tams.service.PositionUpsertRequest;
 import com.sfgroup81.tams.service.SessionContext;
+import com.sfgroup81.tams.ui.PrototypeUi;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -11,87 +12,145 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
-import java.awt.GridLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.util.List;
 
 public class PositionManagePanel extends JPanel {
     private final JTextField positionIdField = new JTextField();
     private final JTextField courseIdField = new JTextField();
+    private final JTextField courseNameField = new JTextField();
+    private final JTextField instructorField = new JTextField();
     private final JTextField semesterIdField = new JTextField();
     private final JTextField typeField = new JTextField();
     private final JTextField headcountField = new JTextField();
     private final JTextField deadlineField = new JTextField();
     private final JTextField titleField = new JTextField();
-    private final JTextField descriptionField = new JTextField();
+    private final JTextArea responsibilitiesArea = new JTextArea(4, 24);
+    private final JTextArea hoursArea = new JTextArea(3, 24);
+    private final JTextArea salaryArea = new JTextArea(3, 24);
+    private final JTextArea mandatoryArea = new JTextArea(3, 24);
+    private final JTextArea preferredArea = new JTextArea(3, 24);
+    private final JTextArea bonusArea = new JTextArea(3, 24);
+    private final JTextArea previewArea = new JTextArea(12, 28);
 
     private final DefaultTableModel tableModel = new DefaultTableModel(
-            new Object[]{"ID", "Course", "Semester", "Type", "Headcount", "Deadline", "Status", "Title"}, 0
+            new Object[]{"ID", "Course", "Instructor", "Deadline", "Status", "Headcount"}, 0
     );
     private final JTable table = new JTable(tableModel);
 
-    private final PositionService positionService = new PositionService(new PositionCsvRepository());
+    private final PositionService positionService;
 
     public PositionManagePanel() {
+        this(new PositionService(new com.sfgroup81.tams.repository.PositionCsvRepository()), null);
+    }
+
+    public PositionManagePanel(PositionService positionService, Runnable onBack) {
+        this.positionService = positionService;
         setLayout(new BorderLayout());
+        setBackground(PrototypeUi.PANEL_BACKGROUND);
+        add(PrototypeUi.createHeader("Job requirements", onBack), BorderLayout.NORTH);
 
-        JPanel formPanel = new JPanel(new GridLayout(10, 2, 8, 8));
-        formPanel.add(new JLabel("Position ID (blank=create):"));
-        formPanel.add(positionIdField);
-        formPanel.add(new JLabel("Course ID:"));
-        formPanel.add(courseIdField);
-        formPanel.add(new JLabel("Semester ID:"));
-        formPanel.add(semesterIdField);
-        formPanel.add(new JLabel("Position Type:"));
-        formPanel.add(typeField);
-        formPanel.add(new JLabel("Headcount:"));
-        formPanel.add(headcountField);
-        formPanel.add(new JLabel("Deadline (yyyy-MM-dd):"));
-        formPanel.add(deadlineField);
-        formPanel.add(new JLabel("Title:"));
-        formPanel.add(titleField);
-        formPanel.add(new JLabel("Description:"));
-        formPanel.add(descriptionField);
+        JPanel content = new JPanel(new BorderLayout(16, 16));
+        content.setOpaque(false);
+        content.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 24, 20, 24));
+        content.add(buildFormPanel(), BorderLayout.WEST);
+        content.add(new JScrollPane(table), BorderLayout.CENTER);
+        content.add(new JScrollPane(previewArea), BorderLayout.EAST);
+        add(content, BorderLayout.CENTER);
 
-        JButton saveDraftButton = new JButton("Save Draft");
-        saveDraftButton.addActionListener(e -> save("DRAFT"));
-        JButton publishButton = new JButton("Publish");
-        publishButton.addActionListener(e -> save("PUBLISHED"));
-        formPanel.add(saveDraftButton);
-        formPanel.add(publishButton);
-
-        JButton unpublishButton = new JButton("Unpublish Selected");
-        unpublishButton.addActionListener(e -> unpublishSelected());
-        JButton refreshButton = new JButton("Refresh Status");
-        refreshButton.addActionListener(e -> refreshTable());
-        formPanel.add(unpublishButton);
-        formPanel.add(refreshButton);
-
-        add(formPanel, BorderLayout.NORTH);
-        add(new JScrollPane(table), BorderLayout.CENTER);
-
+        table.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                loadSelected();
+            }
+        });
+        previewArea.setEditable(false);
         refreshTable();
+    }
+
+    private JPanel buildFormPanel() {
+        JPanel formPanel = PrototypeUi.createVerticalCard();
+        formPanel.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(6, 6, 6, 6);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1;
+
+        int row = 0;
+        addField(formPanel, gbc, row++, "Position ID", positionIdField);
+        addField(formPanel, gbc, row++, "Course ID", courseIdField);
+        addField(formPanel, gbc, row++, "Course Name", courseNameField);
+        addField(formPanel, gbc, row++, "Instructor", instructorField);
+        addField(formPanel, gbc, row++, "Semester", semesterIdField);
+        addField(formPanel, gbc, row++, "Position Type", typeField);
+        addField(formPanel, gbc, row++, "Headcount", headcountField);
+        addField(formPanel, gbc, row++, "Deadline", deadlineField);
+        addField(formPanel, gbc, row++, "Title", titleField);
+        addField(formPanel, gbc, row++, "Responsibilities", new JScrollPane(responsibilitiesArea));
+        addField(formPanel, gbc, row++, "Working Hours", new JScrollPane(hoursArea));
+        addField(formPanel, gbc, row++, "Salary", new JScrollPane(salaryArea));
+        addField(formPanel, gbc, row++, "Mandatory", new JScrollPane(mandatoryArea));
+        addField(formPanel, gbc, row++, "Preferred", new JScrollPane(preferredArea));
+        addField(formPanel, gbc, row++, "Bonus", new JScrollPane(bonusArea));
+
+        JButton saveDraftButton = PrototypeUi.secondaryButton("Save Draft");
+        saveDraftButton.addActionListener(e -> save("DRAFT"));
+        JButton publishButton = PrototypeUi.primaryButton("Save and Publish");
+        publishButton.addActionListener(e -> save("PUBLISHED"));
+        JButton unpublishButton = PrototypeUi.secondaryButton("Unpublish Selected");
+        unpublishButton.addActionListener(e -> unpublishSelected());
+
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        formPanel.add(saveDraftButton, gbc);
+        gbc.gridx = 1;
+        formPanel.add(publishButton, gbc);
+        gbc.gridx = 0;
+        gbc.gridy = row + 1;
+        gbc.gridwidth = 2;
+        formPanel.add(unpublishButton, gbc);
+        return formPanel;
+    }
+
+    private void addField(JPanel panel, GridBagConstraints gbc, int row, String label, java.awt.Component component) {
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.gridwidth = 1;
+        panel.add(new JLabel(label + ":"), gbc);
+        gbc.gridx = 1;
+        panel.add(component, gbc);
     }
 
     private void save(String status) {
         try {
-            TAPosition saved = positionService.savePosition(
+            TAPosition saved = positionService.savePosition(new PositionUpsertRequest(
                     positionIdField.getText(),
                     courseIdField.getText(),
+                    courseNameField.getText(),
+                    instructorField.getText(),
                     semesterIdField.getText(),
                     typeField.getText(),
                     Integer.parseInt(headcountField.getText().trim()),
                     deadlineField.getText(),
+                    status,
                     titleField.getText(),
-                    descriptionField.getText(),
-                    SessionContext.getCurrentUser() == null ? "SYSTEM" : SessionContext.getCurrentUser().userId(),
-                    status
-            );
+                    responsibilitiesArea.getText(),
+                    hoursArea.getText(),
+                    salaryArea.getText(),
+                    mandatoryArea.getText(),
+                    preferredArea.getText(),
+                    bonusArea.getText(),
+                    SessionContext.getCurrentUser() == null ? "SYSTEM" : SessionContext.getCurrentUser().userId()
+            ), SessionContext.getCurrentUser() == null ? "SYSTEM" : SessionContext.getCurrentUser().userId());
             positionIdField.setText(saved.positionId());
             JOptionPane.showMessageDialog(this, "Saved as " + status + " with ID " + saved.positionId());
             refreshTable();
+            previewArea.setText(buildPreview(saved));
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Save Failed", JOptionPane.ERROR_MESSAGE);
         }
@@ -118,8 +177,68 @@ public class PositionManagePanel extends JPanel {
         List<TAPosition> positions = positionService.listAll();
         for (TAPosition p : positions) {
             tableModel.addRow(new Object[]{
-                    p.positionId(), p.courseId(), p.semesterId(), p.positionType(), p.headcount(), p.deadline(), p.status(), p.title()
+                    p.positionId(), p.courseName(), p.instructorName(), p.deadline(), p.status(), p.headcount()
             });
         }
+    }
+
+    private void loadSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            return;
+        }
+        String positionId = tableModel.getValueAt(row, 0).toString();
+        TAPosition position = positionService.getById(positionId);
+        positionIdField.setText(position.positionId());
+        courseIdField.setText(position.courseId());
+        courseNameField.setText(position.courseName());
+        instructorField.setText(position.instructorName());
+        semesterIdField.setText(position.semesterId());
+        typeField.setText(position.positionType());
+        headcountField.setText(Integer.toString(position.headcount()));
+        deadlineField.setText(position.deadline());
+        titleField.setText(position.title());
+        responsibilitiesArea.setText(position.responsibilities());
+        hoursArea.setText(position.workingHours());
+        salaryArea.setText(position.salaryInfo());
+        mandatoryArea.setText(position.mandatoryRequirements());
+        preferredArea.setText(position.preferredRequirements());
+        bonusArea.setText(position.bonusRequirements());
+        previewArea.setText(buildPreview(position));
+    }
+
+    private String buildPreview(TAPosition position) {
+        return """
+                Title: %s
+                Course: %s (%s)
+                Instructor: %s
+                Type: %s
+                Hours: %s
+                Salary: %s
+
+                Responsibilities:
+                %s
+
+                Mandatory:
+                %s
+
+                Preferred:
+                %s
+
+                Bonus:
+                %s
+                """.formatted(
+                position.title(),
+                position.courseName(),
+                position.courseId(),
+                position.instructorName(),
+                position.positionType(),
+                position.workingHours(),
+                position.salaryInfo(),
+                position.responsibilities(),
+                position.mandatoryRequirements(),
+                position.preferredRequirements(),
+                position.bonusRequirements()
+        );
     }
 }

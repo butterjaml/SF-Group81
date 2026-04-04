@@ -13,14 +13,22 @@ import java.util.List;
 import java.util.Optional;
 
 public class PositionCsvRepository {
-    private static final Path POSITION_CSV = Path.of("data", "ta_positions.csv");
+    private final Path positionCsv;
+
+    public PositionCsvRepository() {
+        this(Path.of("data"));
+    }
+
+    public PositionCsvRepository(Path dataDir) {
+        this.positionCsv = dataDir.resolve("ta_positions.csv");
+    }
 
     public List<TAPosition> findAll() {
         try {
-            if (Files.notExists(POSITION_CSV)) {
+            if (Files.notExists(positionCsv)) {
                 return List.of();
             }
-            List<String> lines = Files.readAllLines(POSITION_CSV, StandardCharsets.UTF_8);
+            List<String> lines = Files.readAllLines(positionCsv, StandardCharsets.UTF_8);
             if (lines.size() <= 1) {
                 return List.of();
             }
@@ -32,7 +40,7 @@ public class PositionCsvRepository {
                     continue;
                 }
                 String[] cols = line.split(",", -1);
-                if (cols.length < 12) {
+                if (cols.length < 19) {
                     continue;
                 }
                 positions.add(new TAPosition(
@@ -40,14 +48,21 @@ public class PositionCsvRepository {
                         cols[1],
                         cols[2],
                         cols[3],
-                        parseInt(cols[4]),
+                        cols[4],
                         cols[5],
-                        cols[6],
+                        parseInt(cols[6]),
                         cols[7],
                         cols[8],
                         cols[9],
                         cols[10],
-                        cols[11]
+                        cols[11],
+                        cols[12],
+                        cols[13],
+                        cols[14],
+                        cols[15],
+                        cols[16],
+                        cols[17],
+                        cols[18]
                 ));
             }
             return positions;
@@ -94,18 +109,25 @@ public class PositionCsvRepository {
 
     private void rewriteAll(List<TAPosition> positions) {
         List<String> lines = new ArrayList<>();
-        lines.add("position_id,course_id,semester_id,position_type,headcount,deadline,status,title,description,created_by,created_at,updated_at");
+        lines.add("position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,created_by,created_at,updated_at");
         for (TAPosition p : positions) {
             lines.add(String.join(",",
                     sanitize(p.positionId()),
                     sanitize(p.courseId()),
+                    sanitize(p.courseName()),
+                    sanitize(p.instructorName()),
                     sanitize(p.semesterId()),
                     sanitize(p.positionType()),
                     Integer.toString(p.headcount()),
                     sanitize(p.deadline()),
                     sanitize(p.status()),
                     sanitize(p.title()),
-                    sanitize(p.description()),
+                    sanitize(p.responsibilities()),
+                    sanitize(p.workingHours()),
+                    sanitize(p.salaryInfo()),
+                    sanitize(p.mandatoryRequirements()),
+                    sanitize(p.preferredRequirements()),
+                    sanitize(p.bonusRequirements()),
                     sanitize(p.createdBy()),
                     sanitize(p.createdAt()),
                     sanitize(p.updatedAt())
@@ -113,7 +135,7 @@ public class PositionCsvRepository {
         }
 
         try {
-            Files.write(POSITION_CSV, lines, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(positionCsv, lines, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to write ta_positions.csv", ex);
         }
