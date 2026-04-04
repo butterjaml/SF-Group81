@@ -53,6 +53,7 @@ public class LoginPanel extends JPanel {
                     "Welcome, " + user.name(),
                     "Login Success",
                     JOptionPane.INFORMATION_MESSAGE);
+            passwordField.setText("");
             onLoginSuccess.accept(user);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
