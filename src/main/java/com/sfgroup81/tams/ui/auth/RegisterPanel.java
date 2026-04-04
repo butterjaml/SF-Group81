@@ -24,8 +24,15 @@ public class RegisterPanel extends JPanel {
     private final JPasswordField passwordField = new JPasswordField(22);
     private final JComboBox<UserRole> roleCombo = new JComboBox<>(UserRole.values());
     private final RegistrationService registrationService = new RegistrationService(new UserCsvRepository());
+    private final Runnable onRegistrationSuccess;
 
     public RegisterPanel() {
+        this(() -> {
+        });
+    }
+
+    public RegisterPanel(Runnable onRegistrationSuccess) {
+        this.onRegistrationSuccess = onRegistrationSuccess;
         setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(8, 8, 8, 8);
@@ -65,7 +72,11 @@ public class RegisterPanel extends JPanel {
                     "Registration successful. User ID: " + user.userId(),
                     "Success",
                     JOptionPane.INFORMATION_MESSAGE);
+            nameField.setText("");
+            sidField.setText("");
+            emailField.setText("");
             passwordField.setText("");
+            onRegistrationSuccess.run();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
                     ex.getMessage(),

@@ -8,6 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 class AppSmokeTest {
     @Test
     void bootstrapShouldNotThrow() {
-        assertDoesNotThrow(DataBootstrap::initialize);
+        assertDoesNotThrow(() -> DataBootstrap.initialize());
     }
 }
