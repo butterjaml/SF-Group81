@@ -15,15 +15,23 @@ import java.util.List;
 import java.util.Optional;
 
 public class ResumeFileCsvRepository {
-    private static final Path RESUME_CSV = Path.of("data", "resume_files.csv");
+    private final Path resumeCsv;
     private static final String HEADER = "resume_id,application_id,file_path,file_type,auto_filename,uploaded_at,updated_at";
+
+    public ResumeFileCsvRepository() {
+        this(Path.of("data"));
+    }
+
+    public ResumeFileCsvRepository(Path dataDir) {
+        this.resumeCsv = dataDir.resolve("resume_files.csv");
+    }
 
     public List<ResumeFileRecord> findAll() {
         try {
-            if (Files.notExists(RESUME_CSV)) {
+            if (Files.notExists(resumeCsv)) {
                 return List.of();
             }
-            List<String> lines = Files.readAllLines(RESUME_CSV, StandardCharsets.UTF_8);
+            List<String> lines = Files.readAllLines(resumeCsv, StandardCharsets.UTF_8);
             if (lines.size() <= 1) {
                 return List.of();
             }
@@ -128,7 +136,7 @@ public class ResumeFileCsvRepository {
         }
 
         try {
-            Files.write(RESUME_CSV, lines, StandardCharsets.UTF_8,
+            Files.write(resumeCsv, lines, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to write resume_files.csv", ex);

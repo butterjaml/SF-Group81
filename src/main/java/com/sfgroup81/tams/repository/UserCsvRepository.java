@@ -16,14 +16,22 @@ import java.util.List;
 import java.util.Optional;
 
 public class UserCsvRepository {
-    private static final Path USERS_CSV = Path.of("data", "users.csv");
+    private final Path usersCsv;
+
+    public UserCsvRepository() {
+        this(Path.of("data"));
+    }
+
+    public UserCsvRepository(Path dataDir) {
+        this.usersCsv = dataDir.resolve("users.csv");
+    }
 
     public List<User> findAll() {
         try {
-            if (Files.notExists(USERS_CSV)) {
+            if (Files.notExists(usersCsv)) {
                 return List.of();
             }
-            List<String> lines = Files.readAllLines(USERS_CSV, StandardCharsets.UTF_8);
+            List<String> lines = Files.readAllLines(usersCsv, StandardCharsets.UTF_8);
             if (lines.size() <= 1) {
                 return List.of();
             }
@@ -81,10 +89,10 @@ public class UserCsvRepository {
                     ""
             );
             Files.writeString(
-                    USERS_CSV,
+                    usersCsv,
                     row + System.lineSeparator(),
                     StandardCharsets.UTF_8,
-                    StandardOpenOption.APPEND
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND
             );
             return new User(userId, name, staffOrStudentId, email, passwordHash, role, "ACTIVE", "");
         } catch (IOException ex) {
@@ -94,10 +102,10 @@ public class UserCsvRepository {
 
     public void updateLastLoginAt(String userId) {
         try {
-            if (Files.notExists(USERS_CSV)) {
+            if (Files.notExists(usersCsv)) {
                 return;
             }
-            List<String> lines = Files.readAllLines(USERS_CSV, StandardCharsets.UTF_8);
+            List<String> lines = Files.readAllLines(usersCsv, StandardCharsets.UTF_8);
             if (lines.size() <= 1) {
                 return;
             }
@@ -120,7 +128,7 @@ public class UserCsvRepository {
                 updated.add(String.join(",", cols));
             }
 
-            Files.write(USERS_CSV, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(usersCsv, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to update last_login_at in users.csv", ex);
         }
