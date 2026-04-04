@@ -13,31 +13,53 @@ public final class DataBootstrap {
 
     private static final Map<String, String> BASE_HEADERS = Map.of(
             "users.csv", "user_id,name,staff_or_student_id,email,password_hash,role,status,last_login_at",
-            "ta_positions.csv", "position_id,course_id,semester_id,position_type,headcount,deadline,status,title,description,created_by,created_at,updated_at",
+            "ta_positions.csv", "position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,created_by,created_at,updated_at",
             "application_preferences.csv", "preference_id,application_id,course_id,priority_no",
-            "resume_files.csv", "resume_id,application_id,file_path,file_type,auto_filename,uploaded_at,updated_at"
+            "resume_files.csv", "resume_id,application_id,file_path,file_type,auto_filename,uploaded_at,updated_at",
+            "applicant_profiles.csv", "user_id,phone,major,year_of_study,gpa,skills,availability,notes,updated_at",
+            "ta_applications.csv", "application_id,user_id,position_id,priority_no,status,feedback,submitted_at,updated_at",
+            "application_status_history.csv", "history_id,application_id,status,note,changed_by,changed_at"
     );
 
     private DataBootstrap() {
     }
 
     public static void initialize() {
+        initialize(DATA_DIR);
+    }
+
+    public static void initialize(Path dataDir) {
         try {
-            Files.createDirectories(DATA_DIR);
-            Files.createDirectories(RESUME_DIR);
+            Files.createDirectories(dataDir);
+            Files.createDirectories(dataDir.resolve("resumes"));
             for (Map.Entry<String, String> entry : BASE_HEADERS.entrySet()) {
-                Path csvPath = DATA_DIR.resolve(entry.getKey());
-                if (Files.notExists(csvPath)) {
-                    Files.writeString(
-                            csvPath,
-                            entry.getValue() + System.lineSeparator(),
-                            StandardCharsets.UTF_8,
-                            StandardOpenOption.CREATE_NEW
-                    );
-                }
+                Path csvPath = dataDir.resolve(entry.getKey());
+                ensureHeader(csvPath, entry.getValue());
             }
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to initialize CSV data files", ex);
+        }
+    }
+
+    private static void ensureHeader(Path csvPath, String header) throws IOException {
+        if (Files.notExists(csvPath)) {
+            Files.writeString(
+                    csvPath,
+                    header + System.lineSeparator(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE_NEW
+            );
+            return;
+        }
+
+        java.util.List<String> lines = Files.readAllLines(csvPath, StandardCharsets.UTF_8);
+        if (lines.isEmpty()) {
+            Files.writeString(csvPath, header + System.lineSeparator(), StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+            return;
+        }
+        if (!header.equals(lines.get(0))) {
+            lines.set(0, header);
+            Files.write(csvPath, lines, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
         }
     }
 }
