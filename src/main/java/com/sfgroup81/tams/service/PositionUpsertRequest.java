@@ -1,6 +1,6 @@
-package com.sfgroup81.tams.model;
+package com.sfgroup81.tams.service;
 
-public record TAPosition(
+public record PositionUpsertRequest(
         String positionId,
         String courseId,
         String courseName,
@@ -17,8 +17,6 @@ public record TAPosition(
         String mandatoryRequirements,
         String preferredRequirements,
         String bonusRequirements,
-        String createdBy,
-        String createdAt,
-        String updatedAt
+        String createdBy
 ) {
 }
