@@ -1,5 +1,6 @@
 package com.sfgroup81.tams.service;
 
+import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.model.UserRole;
 
 public record RegistrationRequest(
@@ -7,6 +8,7 @@ public record RegistrationRequest(
         String staffOrStudentId,
         String email,
         String password,
-        UserRole role
+        UserRole role,
+        TACategory taCategory
 ) {
 }

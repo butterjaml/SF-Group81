@@ -1,1 +1,1 @@
-user_id,name,staff_or_student_id,email,password_hash,role,status,last_login_at
+user_id,name,staff_or_student_id,email,password_hash,role,ta_category,status,last_login_at

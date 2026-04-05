@@ -1,6 +1,8 @@
 package com.sfgroup81.tams.service;
 
 import com.sfgroup81.tams.model.User;
+import com.sfgroup81.tams.model.TACategory;
+import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.UserCsvRepository;
 
 import java.util.logging.Level;
@@ -45,12 +47,16 @@ public class RegistrationService {
         }
 
         String hashedPassword = SecurityUtil.sha256(request.password());
+        TACategory taCategory = request.role() == UserRole.TA
+                ? (request.taCategory() == null || request.taCategory() == TACategory.NONE ? TACategory.MODULAR : request.taCategory())
+                : TACategory.NONE;
         User user = repository.saveNewUser(
                 request.name(),
                 request.staffOrStudentId(),
                 request.email(),
                 hashedPassword,
-                request.role()
+                request.role(),
+                taCategory
         );
         LOGGER.log(Level.INFO, "Registration success for user: {0}", user.userId());
         return user;
