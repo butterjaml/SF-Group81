@@ -94,9 +94,9 @@ public class PositionManagePanel extends JPanel {
         addField(formPanel, gbc, row++, "Responsibilities", new JScrollPane(responsibilitiesArea));
         addField(formPanel, gbc, row++, "Working Hours", new JScrollPane(hoursArea));
         addField(formPanel, gbc, row++, "Salary", new JScrollPane(salaryArea));
-        addField(formPanel, gbc, row++, "Mandatory", new JScrollPane(mandatoryArea));
-        addField(formPanel, gbc, row++, "Preferred", new JScrollPane(preferredArea));
-        addField(formPanel, gbc, row++, "Bonus", new JScrollPane(bonusArea));
+        addField(formPanel, gbc, row++, "Mandatory requirements", new JScrollPane(mandatoryArea));
+        addField(formPanel, gbc, row++, "Preferred requirements", new JScrollPane(preferredArea));
+        addField(formPanel, gbc, row++, "Additional requirements", new JScrollPane(bonusArea));
 
         JButton saveDraftButton = PrototypeUi.secondaryButton("Save Draft");
         saveDraftButton.addActionListener(e -> save("DRAFT"));
