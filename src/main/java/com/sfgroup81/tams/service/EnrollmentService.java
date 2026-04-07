@@ -5,6 +5,7 @@ import com.sfgroup81.tams.model.ApplicationStatus;
 import com.sfgroup81.tams.model.TAApplication;
 import com.sfgroup81.tams.model.TAPosition;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
+import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
@@ -28,6 +29,7 @@ public class EnrollmentService {
     private final ResumeUploadService resumeUploadService;
     private final TAApplicationCsvRepository applicationRepository;
     private final ApplicationStatusHistoryCsvRepository historyRepository;
+    private final ApplicationPreferenceCsvRepository preferenceRepository;
 
     public EnrollmentService(UserCsvRepository userRepository,
                              PositionCsvRepository positionRepository,
@@ -35,12 +37,29 @@ public class EnrollmentService {
                              ResumeUploadService resumeUploadService,
                              TAApplicationCsvRepository applicationRepository,
                              ApplicationStatusHistoryCsvRepository historyRepository) {
+        this(userRepository,
+                positionRepository,
+                profileRepository,
+                resumeUploadService,
+                applicationRepository,
+                historyRepository,
+                new ApplicationPreferenceCsvRepository());
+    }
+
+    public EnrollmentService(UserCsvRepository userRepository,
+                             PositionCsvRepository positionRepository,
+                             ApplicantProfileCsvRepository profileRepository,
+                             ResumeUploadService resumeUploadService,
+                             TAApplicationCsvRepository applicationRepository,
+                             ApplicationStatusHistoryCsvRepository historyRepository,
+                             ApplicationPreferenceCsvRepository preferenceRepository) {
         this.userRepository = userRepository;
         this.positionRepository = positionRepository;
         this.profileRepository = profileRepository;
         this.resumeUploadService = resumeUploadService;
         this.applicationRepository = applicationRepository;
         this.historyRepository = historyRepository;
+        this.preferenceRepository = preferenceRepository;
     }
 
     public void submit(EnrollmentSubmission submission) {
@@ -65,9 +84,18 @@ public class EnrollmentService {
                 normalizedPositionIds.add(positionId.trim());
             }
         }
+        Map<String, TAPosition> positionsById = positionsById(normalizedPositionIds);
 
         applicationRepository.deleteByUserId(submission.userId().trim());
         historyRepository.deleteByApplicationPrefix("APP-" + submission.userId().trim());
+        preferenceRepository.saveForApplication(
+                "APP-" + submission.userId().trim(),
+                normalizedPositionIds.stream()
+                        .map(positionId -> positionsById.get(positionId))
+                        .filter(java.util.Objects::nonNull)
+                        .map(TAPosition::courseId)
+                        .toList()
+        );
 
         List<String> applicationIds = new ArrayList<>();
         int priority = 1;
@@ -122,13 +150,9 @@ public class EnrollmentService {
             throw new IllegalArgumentException("You can select up to 3 positions only");
         }
 
-        Map<String, TAPosition> positionsById = positionRepository.findAll().stream()
-                .collect(java.util.stream.Collectors.toMap(TAPosition::positionId, position -> position, (left, right) -> left));
+        Map<String, TAPosition> positionsById = positionsById(uniqueIds);
         for (String positionId : uniqueIds) {
             TAPosition position = positionsById.get(positionId);
-            if (position == null) {
-                throw new IllegalArgumentException("Position not found: " + positionId);
-            }
             if (!"PUBLISHED".equalsIgnoreCase(position.status())) {
                 throw new IllegalArgumentException("Position is not open for application: " + positionId);
             }
@@ -143,6 +167,17 @@ public class EnrollmentService {
 
     private String toApplicationId(String userId, String positionId) {
         return "APP-" + userId.trim() + "-" + positionId.trim();
+    }
+
+    private Map<String, TAPosition> positionsById(Set<String> positionIds) {
+        Map<String, TAPosition> positionsById = positionRepository.findAll().stream()
+                .collect(java.util.stream.Collectors.toMap(TAPosition::positionId, position -> position, (left, right) -> left));
+        for (String positionId : positionIds) {
+            if (!positionsById.containsKey(positionId)) {
+                throw new IllegalArgumentException("Position not found: " + positionId);
+            }
+        }
+        return positionsById;
     }
 
     private String safe(String value) {
