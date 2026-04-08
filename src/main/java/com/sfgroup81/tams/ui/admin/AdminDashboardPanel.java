@@ -9,7 +9,10 @@ import java.awt.BorderLayout;
 import java.awt.GridLayout;
 
 public class AdminDashboardPanel extends JPanel {
-    public AdminDashboardPanel(Runnable onLogout) {
+    public AdminDashboardPanel(Runnable onUserManagement,
+                               Runnable onCasualWork,
+                               Runnable onAuditLog,
+                               Runnable onLogout) {
         setLayout(new BorderLayout());
         setBackground(PrototypeUi.PANEL_BACKGROUND);
         add(PrototypeUi.createHeader("Admin", null), BorderLayout.NORTH);
@@ -20,9 +23,9 @@ public class AdminDashboardPanel extends JPanel {
 
         JPanel menu = PrototypeUi.createVerticalCard();
         menu.setLayout(new GridLayout(3, 1, 0, 12));
-        menu.add(createMenuButton("User Management", "Planned for Sprint3"));
-        menu.add(createMenuButton("Casual Work Posting", "Planned for Sprint2"));
-        menu.add(createMenuButton("Audit Log", "Planned for Sprint3"));
+        menu.add(createMenuButton("User Management", onUserManagement));
+        menu.add(createMenuButton("Casual Work Posting", onCasualWork));
+        menu.add(createMenuButton("Audit Log", onAuditLog));
         content.add(menu, BorderLayout.CENTER);
 
         JButton logoutButton = PrototypeUi.secondaryButton("Log Out");
@@ -35,13 +38,13 @@ public class AdminDashboardPanel extends JPanel {
         add(content, BorderLayout.CENTER);
     }
 
-    private JButton createMenuButton(String text, String message) {
+    private JButton createMenuButton(String text, Runnable action) {
         JButton button = new JButton(text);
         button.setHorizontalAlignment(JButton.LEFT);
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
         button.setBackground(PrototypeUi.CARD_BACKGROUND);
-        button.addActionListener(e -> javax.swing.JOptionPane.showMessageDialog(this, message));
+        button.addActionListener(e -> action.run());
         return button;
     }
 }

@@ -50,7 +50,9 @@ public class TAJobBrowserPanel extends JPanel {
                 PrototypeUi.addVerticalGap(card, 8);
                 card.add(new JLabel("Hours: " + emptyText(position.workingHours())));
                 card.add(new JLabel("Salary: " + emptyText(position.salaryInfo())));
-                card.add(new JLabel("Requirements: " + emptyText(position.mandatoryRequirements())));
+                card.add(new JLabel("Mandatory: " + emptyText(position.mandatoryRequirements())));
+                card.add(new JLabel("Preferred: " + emptyText(position.preferredRequirements())));
+                card.add(new JLabel("Additional: " + emptyText(position.bonusRequirements())));
                 PrototypeUi.addVerticalGap(card, 12);
                 JButton learnMore = PrototypeUi.secondaryButton("Learn More");
                 learnMore.addActionListener(e -> onViewDetails.accept(position.positionId()));

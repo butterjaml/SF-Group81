@@ -11,6 +11,8 @@ import java.awt.GridLayout;
 public class MODashboardPanel extends JPanel {
     public MODashboardPanel(Runnable onManagePositions,
                             Runnable onManageCandidates,
+                            Runnable onFeedback,
+                            int pendingFeedbackCount,
                             Runnable onLogout) {
         setLayout(new BorderLayout());
         setBackground(PrototypeUi.PANEL_BACKGROUND);
@@ -20,11 +22,19 @@ public class MODashboardPanel extends JPanel {
         content.setOpaque(false);
         content.setBorder(BorderFactory.createEmptyBorder(48, 120, 48, 120));
 
+        if (pendingFeedbackCount > 0) {
+            JPanel notice = PrototypeUi.createVerticalCard();
+            notice.add(PrototypeUi.sectionTitle("Semester-end Prompt"));
+            PrototypeUi.addVerticalGap(notice, 8);
+            notice.add(PrototypeUi.mutedLabel("You have " + pendingFeedbackCount + " TA feedback form(s) due after position deadlines."));
+            content.add(notice, BorderLayout.NORTH);
+        }
+
         JPanel menu = PrototypeUi.createVerticalCard();
         menu.setLayout(new GridLayout(3, 1, 0, 12));
         menu.add(createMenuButton("My Positions", onManagePositions));
         menu.add(createMenuButton("Candidate Management", onManageCandidates));
-        menu.add(createMenuButton("TA Evaluation Feedback", () -> javax.swing.JOptionPane.showMessageDialog(this, "TA feedback starts in Sprint2.")));
+        menu.add(createMenuButton("TA Evaluation Feedback", onFeedback));
         content.add(menu, BorderLayout.CENTER);
 
         JButton logoutButton = PrototypeUi.secondaryButton("Log Out");
