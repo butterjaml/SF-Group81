@@ -94,9 +94,9 @@ public class PositionManagePanel extends JPanel {
         addField(formPanel, gbc, row++, "Responsibilities", new JScrollPane(responsibilitiesArea));
         addField(formPanel, gbc, row++, "Working Hours", new JScrollPane(hoursArea));
         addField(formPanel, gbc, row++, "Salary", new JScrollPane(salaryArea));
-        addField(formPanel, gbc, row++, "Mandatory", new JScrollPane(mandatoryArea));
-        addField(formPanel, gbc, row++, "Preferred", new JScrollPane(preferredArea));
-        addField(formPanel, gbc, row++, "Bonus", new JScrollPane(bonusArea));
+        addField(formPanel, gbc, row++, "Mandatory requirements", new JScrollPane(mandatoryArea));
+        addField(formPanel, gbc, row++, "Preferred requirements", new JScrollPane(preferredArea));
+        addField(formPanel, gbc, row++, "Additional requirements", new JScrollPane(bonusArea));
 
         JButton saveDraftButton = PrototypeUi.secondaryButton("Save Draft");
         saveDraftButton.addActionListener(e -> save("DRAFT"));
@@ -225,7 +225,7 @@ public class PositionManagePanel extends JPanel {
                 Preferred:
                 %s
 
-                Bonus:
+                Additional:
                 %s
                 """.formatted(
                 position.title(),
@@ -236,9 +236,28 @@ public class PositionManagePanel extends JPanel {
                 position.workingHours(),
                 position.salaryInfo(),
                 position.responsibilities(),
-                position.mandatoryRequirements(),
-                position.preferredRequirements(),
-                position.bonusRequirements()
+                formatRequirementBlock(position.mandatoryRequirements()),
+                formatRequirementBlock(position.preferredRequirements()),
+                formatRequirementBlock(position.bonusRequirements())
         );
+    }
+
+    private String formatRequirementBlock(String value) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+        String[] lines = value.split("\\R");
+        StringBuilder builder = new StringBuilder();
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            if (builder.length() > 0) {
+                builder.append('\n');
+            }
+            builder.append(" - ").append(trimmed);
+        }
+        return builder.isEmpty() ? "-" : builder.toString();
     }
 }

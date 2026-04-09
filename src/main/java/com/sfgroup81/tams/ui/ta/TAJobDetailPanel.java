@@ -57,7 +57,7 @@ public class TAJobDetailPanel extends JPanel {
                 7. Recruitment Requirements:
                 Mandatory: %s
                 Preferred: %s
-                Bonus: %s
+                Additional: %s
                 """.formatted(
                 fallback(position.title(), position.courseName()),
                 fallback(position.courseName(), "-"),
