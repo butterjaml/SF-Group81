@@ -13,15 +13,23 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ApplicationPreferenceCsvRepository {
-    private static final Path PREFERENCE_CSV = Path.of("data", "application_preferences.csv");
     private static final String HEADER = "preference_id,application_id,course_id,priority_no";
+    private final Path preferenceCsv;
+
+    public ApplicationPreferenceCsvRepository() {
+        this(Path.of("data"));
+    }
+
+    public ApplicationPreferenceCsvRepository(Path dataDir) {
+        this.preferenceCsv = dataDir.resolve("application_preferences.csv");
+    }
 
     public List<ApplicationPreference> findAll() {
         try {
-            if (Files.notExists(PREFERENCE_CSV)) {
+            if (Files.notExists(preferenceCsv)) {
                 return List.of();
             }
-            List<String> lines = Files.readAllLines(PREFERENCE_CSV, StandardCharsets.UTF_8);
+            List<String> lines = Files.readAllLines(preferenceCsv, StandardCharsets.UTF_8);
             if (lines.size() <= 1) {
                 return List.of();
             }
@@ -98,7 +106,7 @@ public class ApplicationPreferenceCsvRepository {
             ));
         }
         try {
-            Files.write(PREFERENCE_CSV, lines, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(preferenceCsv, lines, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to write application_preferences.csv", ex);
         }
