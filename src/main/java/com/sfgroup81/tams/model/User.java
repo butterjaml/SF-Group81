@@ -7,6 +7,7 @@ public record User(
         String email,
         String passwordHash,
         UserRole role,
+        TACategory taCategory,
         String status,
         String lastLoginAt
 ) {

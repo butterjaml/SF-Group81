@@ -1,6 +1,7 @@
 package com.sfgroup81.tams.repository;
 
 import com.sfgroup81.tams.model.User;
+import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.model.UserRole;
 
 import java.io.IOException;
@@ -46,15 +47,18 @@ public class UserCsvRepository {
                 if (cols.length < 8) {
                     continue;
                 }
+                UserRole role = UserRole.valueOf(cols[5]);
+                TACategory taCategory = parseTaCategory(cols, role);
                 users.add(new User(
                         cols[0],
                         cols[1],
                         cols[2],
                         cols[3],
                         cols[4],
-                        UserRole.valueOf(cols[5]),
-                        cols[6],
-                        cols[7]
+                        role,
+                        taCategory,
+                        cols.length >= 9 ? cols[7] : cols[6],
+                        cols.length >= 9 ? cols[8] : cols[7]
                 ));
             }
             return users;
@@ -76,6 +80,15 @@ public class UserCsvRepository {
     }
 
     public User saveNewUser(String name, String staffOrStudentId, String email, String passwordHash, UserRole role) {
+        return saveNewUser(name, staffOrStudentId, email, passwordHash, role, defaultCategory(role));
+    }
+
+    public User saveNewUser(String name,
+                            String staffOrStudentId,
+                            String email,
+                            String passwordHash,
+                            UserRole role,
+                            TACategory taCategory) {
         try {
             String userId = nextUserId();
             String row = String.join(",",
@@ -85,6 +98,7 @@ public class UserCsvRepository {
                     sanitize(email),
                     sanitize(passwordHash),
                     role.name(),
+                    normalizeCategory(role, taCategory).name(),
                     "ACTIVE",
                     ""
             );
@@ -94,7 +108,7 @@ public class UserCsvRepository {
                     StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND
             );
-            return new User(userId, name, staffOrStudentId, email, passwordHash, role, "ACTIVE", "");
+            return new User(userId, name, staffOrStudentId, email, passwordHash, role, normalizeCategory(role, taCategory), "ACTIVE", "");
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to write users.csv", ex);
         }
@@ -123,7 +137,11 @@ public class UserCsvRepository {
                     continue;
                 }
                 if (cols[0].equals(userId)) {
-                    cols[7] = now;
+                    if (cols.length >= 9) {
+                        cols[8] = now;
+                    } else {
+                        cols[7] = now;
+                    }
                 }
                 updated.add(String.join(",", cols));
             }
@@ -148,5 +166,23 @@ public class UserCsvRepository {
 
     private String sanitize(String value) {
         return value == null ? "" : value.replace(",", " ").trim();
+    }
+
+    private TACategory parseTaCategory(String[] cols, UserRole role) {
+        if (cols.length >= 9 && !cols[6].isBlank()) {
+            return normalizeCategory(role, TACategory.valueOf(cols[6]));
+        }
+        return defaultCategory(role);
+    }
+
+    private TACategory defaultCategory(UserRole role) {
+        return role == UserRole.TA ? TACategory.MODULAR : TACategory.NONE;
+    }
+
+    private TACategory normalizeCategory(UserRole role, TACategory taCategory) {
+        if (role != UserRole.TA) {
+            return TACategory.NONE;
+        }
+        return taCategory == null || taCategory == TACategory.NONE ? TACategory.MODULAR : taCategory;
     }
 }

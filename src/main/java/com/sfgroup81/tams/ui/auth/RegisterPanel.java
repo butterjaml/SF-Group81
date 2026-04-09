@@ -1,5 +1,6 @@
 package com.sfgroup81.tams.ui.auth;
 
+import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.UserCsvRepository;
@@ -23,6 +24,7 @@ public class RegisterPanel extends JPanel {
     private final JTextField emailField = new JTextField(22);
     private final JPasswordField passwordField = new JPasswordField(22);
     private final JComboBox<UserRole> roleCombo = new JComboBox<>(UserRole.values());
+    private final JComboBox<TACategory> taCategoryCombo = new JComboBox<>(new TACategory[]{TACategory.MODULAR, TACategory.NON_MODULAR});
     private final RegistrationService registrationService = new RegistrationService(new UserCsvRepository());
     private final Runnable onRegistrationSuccess;
 
@@ -43,11 +45,15 @@ public class RegisterPanel extends JPanel {
         addRow(gbc, 2, "Email", emailField);
         addRow(gbc, 3, "Password", passwordField);
         addRow(gbc, 4, "Role", roleCombo);
+        addRow(gbc, 5, "TA Category", taCategoryCombo);
+
+        roleCombo.addActionListener(e -> refreshTaCategoryState());
+        refreshTaCategoryState();
 
         JButton submitButton = new JButton("Create Account");
         submitButton.addActionListener(e -> onRegister());
         gbc.gridx = 1;
-        gbc.gridy = 5;
+        gbc.gridy = 6;
         add(submitButton, gbc);
     }
 
@@ -66,7 +72,8 @@ public class RegisterPanel extends JPanel {
                     sidField.getText(),
                     emailField.getText(),
                     new String(passwordField.getPassword()),
-                    (UserRole) roleCombo.getSelectedItem()
+                    (UserRole) roleCombo.getSelectedItem(),
+                    roleCombo.getSelectedItem() == UserRole.TA ? (TACategory) taCategoryCombo.getSelectedItem() : TACategory.NONE
             ));
             JOptionPane.showMessageDialog(this,
                     "Registration successful. User ID: " + user.userId(),
@@ -76,12 +83,21 @@ public class RegisterPanel extends JPanel {
             sidField.setText("");
             emailField.setText("");
             passwordField.setText("");
+            taCategoryCombo.setSelectedItem(TACategory.MODULAR);
             onRegistrationSuccess.run();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
                     ex.getMessage(),
                     "Registration Failed",
                     JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void refreshTaCategoryState() {
+        boolean taSelected = roleCombo.getSelectedItem() == UserRole.TA;
+        taCategoryCombo.setEnabled(taSelected);
+        if (!taSelected) {
+            taCategoryCombo.setSelectedItem(TACategory.MODULAR);
         }
     }
 }
