@@ -4,6 +4,7 @@ import com.sfgroup81.tams.bootstrap.DataBootstrap;
 import com.sfgroup81.tams.model.ApplicationStatus;
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
+import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EnrollmentServiceTest {
@@ -82,7 +84,8 @@ class EnrollmentServiceTest {
                 profileRepository,
                 resumeUploadService,
                 applicationRepository,
-                historyRepository
+                historyRepository,
+                new ApplicationPreferenceCsvRepository(tempDir)
         );
 
         Path resumeFile = tempDir.resolve("alice_cv.pdf");
@@ -106,6 +109,11 @@ class EnrollmentServiceTest {
         assertEquals(2, applicationRepository.findByUserId("U0001").size());
         assertEquals(ApplicationStatus.PENDING_REVIEW, applicationRepository.findById("APP-U0001-P0001").orElseThrow().status());
         assertEquals(1, historyRepository.findByApplicationId("APP-U0001-P0001").size());
+        assertEquals(List.of("COMP301", "COMP302"),
+                new ApplicationPreferenceCsvRepository(tempDir).findByApplicationId("APP-U0001").stream()
+                        .map(item -> item.courseId())
+                        .toList());
+        assertTrue(Files.readString(tempDir.resolve("application_preferences.csv")).contains("APP-U0001,COMP301,1"));
     }
 
     @Test
@@ -144,7 +152,8 @@ class EnrollmentServiceTest {
                 new ApplicantProfileCsvRepository(tempDir),
                 new ResumeUploadService(tempDir, new ResumeFileCsvRepository(tempDir), userRepository),
                 new TAApplicationCsvRepository(tempDir),
-                new ApplicationStatusHistoryCsvRepository(tempDir)
+                new ApplicationStatusHistoryCsvRepository(tempDir),
+                new ApplicationPreferenceCsvRepository(tempDir)
         );
 
         Path resumeFile = tempDir.resolve("bob_cv.pdf");

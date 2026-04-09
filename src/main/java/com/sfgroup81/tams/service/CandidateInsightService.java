@@ -4,6 +4,7 @@ import com.sfgroup81.tams.model.ApplicantProfile;
 import com.sfgroup81.tams.model.InternalReferral;
 import com.sfgroup81.tams.model.TAApplication;
 import com.sfgroup81.tams.model.TAFeedback;
+import com.sfgroup81.tams.model.TAPosition;
 import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.InternalReferralCsvRepository;
@@ -12,6 +13,11 @@ import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
 import com.sfgroup81.tams.repository.TAFeedbackCsvRepository;
 import com.sfgroup81.tams.repository.UserCsvRepository;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -22,7 +28,6 @@ public class CandidateInsightService {
     private final TAApplicationCsvRepository applicationRepository;
     private final UserCsvRepository userRepository;
     private final ApplicantProfileCsvRepository profileRepository;
-    @SuppressWarnings("unused")
     private final PositionCsvRepository positionRepository;
     private final InternalReferralCsvRepository referralRepository;
     private final TAFeedbackCsvRepository feedbackRepository;
@@ -77,6 +82,38 @@ public class CandidateInsightService {
         return candidates;
     }
 
+    public CandidateExportResult exportCandidates(String positionId, Path outputDir) {
+        TAPosition position = positionRepository.findById(positionId)
+                .orElseThrow(() -> new IllegalArgumentException("Position not found: " + positionId));
+        List<CandidateReviewView> candidates = listCandidatesForPosition(positionId, false);
+        if (candidates.isEmpty()) {
+            throw new IllegalArgumentException("No candidates available");
+        }
+        try {
+            Files.createDirectories(outputDir);
+            String filename = sanitizeFileFragment(position.title().isBlank() ? position.courseName() : position.title())
+                    + "_Candidates_"
+                    + LocalDate.now()
+                    + ".csv";
+            Path exportFile = outputDir.resolve(filename);
+            List<String> lines = new ArrayList<>();
+            lines.add("Name,Student ID,Major,Skills,Application Time");
+            for (CandidateReviewView candidate : candidates) {
+                lines.add(String.join(",",
+                        sanitize(candidate.user() == null ? candidate.application().userId() : candidate.user().name()),
+                        sanitize(candidate.user() == null ? "" : candidate.user().staffOrStudentId()),
+                        sanitize(candidate.profile() == null ? "" : candidate.profile().major()),
+                        sanitize(candidate.profile() == null ? "" : candidate.profile().skills()),
+                        sanitize(candidate.application().submittedAt())
+                ));
+            }
+            Files.write(exportFile, lines, StandardCharsets.UTF_8);
+            return new CandidateExportResult(exportFile, candidates.size());
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to export candidates", ex);
+        }
+    }
+
     public double reputationScore(String userId) {
         List<TAFeedback> feedback = feedbackRepository.findByTaUserId(userId);
         if (feedback.isEmpty()) {
@@ -84,6 +121,15 @@ public class CandidateInsightService {
         }
         double average = feedback.stream().mapToDouble(TAFeedback::averageScore).average().orElse(0.0);
         return Math.round(average * 100.0) / 100.0;
+    }
+
+    private String sanitizeFileFragment(String value) {
+        String normalized = safe(value).replaceAll("[^A-Za-z0-9]+", "_");
+        return normalized.isBlank() ? "Position" : normalized.replaceAll("^_+|_+$", "");
+    }
+
+    private String sanitize(String value) {
+        return safe(value).replace(",", " ");
     }
 
     private String safe(String value) {

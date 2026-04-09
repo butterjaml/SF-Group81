@@ -14,6 +14,9 @@ import java.awt.GridLayout;
 public class TADashboardPanel extends JPanel {
     public TADashboardPanel(Runnable onBrowseJobs,
                             Runnable onViewStatus,
+                            Runnable onInterviewManagement,
+                            Runnable onOpenTemporaryWork,
+                            boolean showTemporaryWork,
                             Runnable onOpenEnrollment,
                             Runnable onLogout) {
         setLayout(new BorderLayout());
@@ -35,11 +38,13 @@ public class TADashboardPanel extends JPanel {
         content.add(notice, BorderLayout.WEST);
 
         JPanel menu = PrototypeUi.createVerticalCard();
-        menu.setLayout(new GridLayout(5, 1, 0, 10));
+        menu.setLayout(new GridLayout(showTemporaryWork ? 5 : 4, 1, 0, 10));
         menu.add(createMenuButton("Job application", onBrowseJobs));
         menu.add(createMenuButton("My application", onViewStatus));
-        menu.add(createMenuButton("Interview management", () -> javax.swing.JOptionPane.showMessageDialog(this, "Interview confirmation is planned for Sprint2.")));
-        menu.add(createMenuButton("Temporary work", () -> javax.swing.JOptionPane.showMessageDialog(this, "Temporary work postings start in Sprint2.")));
+        menu.add(createMenuButton("Interview management", onInterviewManagement));
+        if (showTemporaryWork) {
+            menu.add(createMenuButton("Temporary work", onOpenTemporaryWork));
+        }
         menu.add(createMenuButton("Personal Center", onOpenEnrollment));
         content.add(menu, BorderLayout.CENTER);
 
