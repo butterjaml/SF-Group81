@@ -2,6 +2,7 @@ package com.sfgroup81.tams.service;
 
 import com.sfgroup81.tams.bootstrap.DataBootstrap;
 import com.sfgroup81.tams.model.ApplicationStatus;
+import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
@@ -171,5 +172,60 @@ class EnrollmentServiceTest {
                 resumeFile,
                 List.of("P0001", "P0002", "P0003", "P0004")
         )));
+    }
+
+    @Test
+    void submitShouldRejectNonModularTaForFormalPositions() throws Exception {
+        DataBootstrap.initialize(tempDir);
+        UserCsvRepository userRepository = new UserCsvRepository(tempDir);
+        PositionCsvRepository positionRepository = new PositionCsvRepository(tempDir);
+
+        userRepository.saveNewUser("Dana Wong", "20250005", "dana@example.com", SecurityUtil.sha256("password123"), UserRole.TA, TACategory.NON_MODULAR);
+        new PositionService(positionRepository).savePosition(new PositionUpsertRequest(
+                "",
+                "COMP450",
+                "Formal Methods",
+                "Prof. Ho",
+                "2026S1",
+                "Modular TA",
+                1,
+                LocalDate.now().plusDays(10).toString(),
+                "PUBLISHED",
+                "COMP450 TA",
+                "Support tutorials",
+                "4 hours/week",
+                "Base 80 yuan/hour",
+                "Requirement",
+                "",
+                "",
+                "U0002"
+        ), "U0002");
+
+        EnrollmentService service = new EnrollmentService(
+                userRepository,
+                positionRepository,
+                new ApplicantProfileCsvRepository(tempDir),
+                new ResumeUploadService(tempDir, new ResumeFileCsvRepository(tempDir), userRepository),
+                new TAApplicationCsvRepository(tempDir),
+                new ApplicationStatusHistoryCsvRepository(tempDir),
+                new ApplicationPreferenceCsvRepository(tempDir)
+        );
+
+        Path resumeFile = tempDir.resolve("dana_cv.pdf");
+        Files.writeString(resumeFile, "resume");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.submit(new EnrollmentSubmission(
+                "U0001",
+                "18800004444",
+                "Software Engineering",
+                "Year 2",
+                "3.50",
+                "Java",
+                "Flexible",
+                "",
+                resumeFile,
+                List.of("P0001")
+        )));
+        assertTrue(ex.getMessage().contains("Non-modular"));
     }
 }
