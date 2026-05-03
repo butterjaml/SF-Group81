@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class UserCsvRepository {
+    private static final String HEADER = "user_id,name,staff_or_student_id,email,password_hash,role,ta_category,status,last_login_at";
     private final Path usersCsv;
 
     public UserCsvRepository() {
@@ -73,6 +74,12 @@ public class UserCsvRepository {
                 .findFirst();
     }
 
+    public Optional<User> findById(String userId) {
+        return findAll().stream()
+                .filter(user -> user.userId().equals(userId == null ? "" : userId.trim()))
+                .findFirst();
+    }
+
     public Optional<User> findByStaffOrStudentId(String staffOrStudentId) {
         return findAll().stream()
                 .filter(user -> user.staffOrStudentId().equalsIgnoreCase(staffOrStudentId == null ? "" : staffOrStudentId.trim()))
@@ -89,29 +96,26 @@ public class UserCsvRepository {
                             String passwordHash,
                             UserRole role,
                             TACategory taCategory) {
-        try {
-            String userId = nextUserId();
-            String row = String.join(",",
-                    userId,
-                    sanitize(name),
-                    sanitize(staffOrStudentId),
-                    sanitize(email),
-                    sanitize(passwordHash),
-                    role.name(),
-                    normalizeCategory(role, taCategory).name(),
-                    "ACTIVE",
-                    ""
-            );
-            Files.writeString(
-                    usersCsv,
-                    row + System.lineSeparator(),
-                    StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND
-            );
-            return new User(userId, name, staffOrStudentId, email, passwordHash, role, normalizeCategory(role, taCategory), "ACTIVE", "");
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to write users.csv", ex);
-        }
+        User user = new User(
+                nextUserId(),
+                sanitize(name),
+                sanitize(staffOrStudentId),
+                sanitize(email),
+                sanitize(passwordHash),
+                role,
+                normalizeCategory(role, taCategory),
+                "ACTIVE",
+                ""
+        );
+        return saveOrUpdate(user);
+    }
+
+    public User saveOrUpdate(User user) {
+        List<User> all = new ArrayList<>(findAll());
+        all.removeIf(item -> item.userId().equals(user.userId()));
+        all.add(user);
+        rewriteAll(all);
+        return user;
     }
 
     public void updateLastLoginAt(String userId) {
@@ -124,31 +128,50 @@ public class UserCsvRepository {
                 return;
             }
             String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            List<String> updated = new ArrayList<>();
-            updated.add(lines.get(0));
-
-            for (int i = 1; i < lines.size(); i++) {
-                String line = lines.get(i).trim();
-                if (line.isEmpty()) {
-                    continue;
+            List<User> updated = new ArrayList<>();
+            for (User user : findAll()) {
+                if (user.userId().equals(userId)) {
+                    updated.add(new User(
+                            user.userId(),
+                            user.name(),
+                            user.staffOrStudentId(),
+                            user.email(),
+                            user.passwordHash(),
+                            user.role(),
+                            user.taCategory(),
+                            user.status(),
+                            now
+                    ));
+                } else {
+                    updated.add(user);
                 }
-                String[] cols = line.split(",", -1);
-                if (cols.length < 8) {
-                    continue;
-                }
-                if (cols[0].equals(userId)) {
-                    if (cols.length >= 9) {
-                        cols[8] = now;
-                    } else {
-                        cols[7] = now;
-                    }
-                }
-                updated.add(String.join(",", cols));
             }
-
-            Files.write(usersCsv, updated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+            rewriteAll(updated);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to update last_login_at in users.csv", ex);
+        }
+    }
+
+    private void rewriteAll(List<User> users) {
+        List<String> lines = new ArrayList<>();
+        lines.add(HEADER);
+        for (User user : users) {
+            lines.add(String.join(",",
+                    sanitize(user.userId()),
+                    sanitize(user.name()),
+                    sanitize(user.staffOrStudentId()),
+                    sanitize(user.email()),
+                    sanitize(user.passwordHash()),
+                    user.role().name(),
+                    normalizeCategory(user.role(), user.taCategory()).name(),
+                    sanitize(user.status()),
+                    sanitize(user.lastLoginAt())
+            ));
+        }
+        try {
+            Files.write(usersCsv, lines, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to write users.csv", ex);
         }
     }
 

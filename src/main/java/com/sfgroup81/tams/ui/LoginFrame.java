@@ -29,9 +29,11 @@ import com.sfgroup81.tams.service.PositionService;
 import com.sfgroup81.tams.service.ResumeUploadService;
 import com.sfgroup81.tams.service.SessionContext;
 import com.sfgroup81.tams.service.TAFeedbackService;
+import com.sfgroup81.tams.service.UserManagementService;
 import com.sfgroup81.tams.ui.admin.AdminAuditLogPanel;
 import com.sfgroup81.tams.ui.admin.AdminCasualWorkPanel;
 import com.sfgroup81.tams.ui.admin.AdminDashboardPanel;
+import com.sfgroup81.tams.ui.admin.AdminUserManagementPanel;
 import com.sfgroup81.tams.ui.auth.AuthLandingPanel;
 import com.sfgroup81.tams.ui.mo.MODashboardPanel;
 import com.sfgroup81.tams.ui.mo.MOCandidateManagementPanel;
@@ -125,6 +127,7 @@ public class LoginFrame extends JFrame {
             userRepository,
             auditLogService
     );
+    private final UserManagementService userManagementService = new UserManagementService(userRepository, auditLogService);
 
     public LoginFrame() {
         setTitle("TA Management System");
@@ -169,7 +172,7 @@ public class LoginFrame extends JFrame {
             ));
         } else {
             setContentPane(new AdminDashboardPanel(
-                    () -> showPlannedMessage("User management is planned for Sprint3."),
+                    this::showAdminUserManagement,
                     this::showAdminCasualWork,
                     this::showAdminAuditLog,
                     this::logout
@@ -261,6 +264,11 @@ public class LoginFrame extends JFrame {
     private void showAdminCasualWork() {
         auditLogService.record("DATA_ACCESS", currentUser.userId(), "Opened admin casual work management");
         setContentPane(new AdminCasualWorkPanel(currentUser, casualWorkService, userRepository, this::showRoleHome));
+        refreshFrame();
+    }
+
+    private void showAdminUserManagement() {
+        setContentPane(new AdminUserManagementPanel(currentUser, userManagementService, auditLogService, this::showRoleHome));
         refreshFrame();
     }
 
