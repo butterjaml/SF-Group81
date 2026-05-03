@@ -1,1 +1,4 @@
 referral_id,user_id,recommender_name,note,tagged_by,updated_at
+RF0001,U0004,Prof Zhao,Strong classroom presence,U0002,2026-04-05T10:00:00
+RF0002,U0009,Dr Chua,Worked with research group,U0003,2026-04-09T14:20:00
+RF0003,U0010,Studio Lead,Recommended for facilitation,U0003,2026-04-10T14:10:00
