@@ -365,6 +365,9 @@ public class MOCandidateManagementPanel extends JPanel {
             currentCandidates = List.of();
             detailArea.setText("No positions available.");
             comparisonGrid.removeAll();
+            comparisonGrid.add(emptyCompareCard("No positions are available for comparison yet."));
+            comparisonGrid.revalidate();
+            comparisonGrid.repaint();
             return;
         }
 
