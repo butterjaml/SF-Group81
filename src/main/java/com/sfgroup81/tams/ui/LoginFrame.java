@@ -118,7 +118,9 @@ public class LoginFrame extends JFrame {
             profileRepository,
             positionRepository,
             internalReferralRepository,
-            feedbackRepository
+            feedbackRepository,
+            resumeRepository,
+            auditLogService
     );
     private final TAFeedbackService feedbackService = new TAFeedbackService(
             feedbackRepository,
