@@ -11,4 +11,7 @@ public record User(
         String status,
         String lastLoginAt
 ) {
+    public String userDisplay() {
+        return name + " (" + userId + ")";
+    }
 }
