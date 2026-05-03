@@ -2,7 +2,6 @@ package com.sfgroup81.tams.ui;
 
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.model.User;
-import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.AuditLogCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
@@ -109,8 +108,8 @@ public class LoginFrame extends JFrame {
             casualWorkPostingRepository,
             casualWorkApplicationRepository,
             userRepository,
-            new TAApplicationCsvRepository(),
-            new PositionCsvRepository(),
+            applicationRepository,
+            positionRepository,
             auditLogService
     );
     private final CandidateInsightService candidateInsightService = new CandidateInsightService(
@@ -162,7 +161,7 @@ public class LoginFrame extends JFrame {
                     this::showTAStatus,
                     this::showTAInterviews,
                     this::showTACasualWork,
-                    currentUser.taCategory() == TACategory.NON_MODULAR,
+                    casualWorkService.canApplyCasualWork(currentUser.userId()),
                     () -> showTAEnrollment(null),
                     this::logout
             ));
@@ -227,8 +226,8 @@ public class LoginFrame extends JFrame {
     }
 
     private void showTACasualWork() {
-        if (currentUser == null || currentUser.taCategory() != TACategory.NON_MODULAR) {
-            showPlannedMessage("Casual work is available only to non-modular TAs.");
+        if (currentUser == null || !casualWorkService.canApplyCasualWork(currentUser.userId())) {
+            showPlannedMessage("Casual work is available only to TAs hired for the current semester.");
             return;
         }
         auditLogService.record("DATA_ACCESS", currentUser.userId(), "Opened TA casual work browser");
