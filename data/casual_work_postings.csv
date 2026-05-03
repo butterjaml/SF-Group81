@@ -1,1 +1,4 @@
 posting_id,title,description,work_date,location,required_skills,headcount,compensation,status,created_by,created_at,updated_at
+CW0001,Exam Invigilation,Support final exam supervision,2026-04-20,Block A Room 301,Reliability; punctuality,3,200 yuan/session,OPEN,U0001,2026-04-09T10:00:00,2026-04-09T10:00:00
+CW0002,Open Day Support,Guide visitors and manage check in,2026-04-25,Innovation Hub,Communication; crowd guidance,2,180 yuan/session,OPEN,U0001,2026-04-10T09:30:00,2026-04-10T09:30:00
+CW0003,Archive Digitisation,Sort and scan records for storage,2026-04-02,Admin Office,Spreadsheet skills,1,150 yuan/day,CLOSED,U0001,2026-03-25T14:30:00,2026-04-02T18:00:00
