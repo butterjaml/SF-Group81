@@ -2,11 +2,15 @@ package com.sfgroup81.tams.service;
 
 import com.sfgroup81.tams.model.ApplicantProfile;
 import com.sfgroup81.tams.model.ApplicationStatus;
+import com.sfgroup81.tams.model.EnrollmentProfileSnapshot;
+import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.model.TAApplication;
 import com.sfgroup81.tams.model.TAPosition;
+import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
+import com.sfgroup81.tams.repository.EnrollmentProfileSnapshotCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
 import com.sfgroup81.tams.repository.UserCsvRepository;
@@ -30,6 +34,8 @@ public class EnrollmentService {
     private final TAApplicationCsvRepository applicationRepository;
     private final ApplicationStatusHistoryCsvRepository historyRepository;
     private final ApplicationPreferenceCsvRepository preferenceRepository;
+    private final EnrollmentProfileSnapshotCsvRepository snapshotRepository;
+    private final AuditLogService auditLogService;
 
     public EnrollmentService(UserCsvRepository userRepository,
                              PositionCsvRepository positionRepository,
@@ -43,7 +49,9 @@ public class EnrollmentService {
                 resumeUploadService,
                 applicationRepository,
                 historyRepository,
-                new ApplicationPreferenceCsvRepository());
+                new ApplicationPreferenceCsvRepository(),
+                new EnrollmentProfileSnapshotCsvRepository(),
+                AuditLogService.noop());
     }
 
     public EnrollmentService(UserCsvRepository userRepository,
@@ -53,6 +61,26 @@ public class EnrollmentService {
                              TAApplicationCsvRepository applicationRepository,
                              ApplicationStatusHistoryCsvRepository historyRepository,
                              ApplicationPreferenceCsvRepository preferenceRepository) {
+        this(userRepository,
+                positionRepository,
+                profileRepository,
+                resumeUploadService,
+                applicationRepository,
+                historyRepository,
+                preferenceRepository,
+                new EnrollmentProfileSnapshotCsvRepository(),
+                AuditLogService.noop());
+    }
+
+    public EnrollmentService(UserCsvRepository userRepository,
+                             PositionCsvRepository positionRepository,
+                             ApplicantProfileCsvRepository profileRepository,
+                             ResumeUploadService resumeUploadService,
+                             TAApplicationCsvRepository applicationRepository,
+                             ApplicationStatusHistoryCsvRepository historyRepository,
+                             ApplicationPreferenceCsvRepository preferenceRepository,
+                             EnrollmentProfileSnapshotCsvRepository snapshotRepository,
+                             AuditLogService auditLogService) {
         this.userRepository = userRepository;
         this.positionRepository = positionRepository;
         this.profileRepository = profileRepository;
@@ -60,15 +88,15 @@ public class EnrollmentService {
         this.applicationRepository = applicationRepository;
         this.historyRepository = historyRepository;
         this.preferenceRepository = preferenceRepository;
+        this.snapshotRepository = snapshotRepository;
+        this.auditLogService = auditLogService;
     }
 
-    // 执行完整的申请提交流程，包括校验、保存个人资料、删除旧申请、创建新申请、上传简历等
     public void submit(EnrollmentSubmission submission) {
         validateSubmission(submission);
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
-        // 保存或更新申请者个人资料
-        profileRepository.saveOrUpdate(new ApplicantProfile(
+        ApplicantProfile profile = profileRepository.saveOrUpdate(new ApplicantProfile(
                 submission.userId().trim(),
                 safe(submission.phone()),
                 safe(submission.major()),
@@ -79,8 +107,7 @@ public class EnrollmentService {
                 safe(submission.notes()),
                 now
         ));
-        
-        // 处理职位ID列表（去重、去空、保持顺序）
+
         Set<String> normalizedPositionIds = new LinkedHashSet<>();
         for (String positionId : submission.positionIds()) {
             if (positionId != null && !positionId.isBlank()) {
@@ -89,10 +116,8 @@ public class EnrollmentService {
         }
         Map<String, TAPosition> positionsById = positionsById(normalizedPositionIds);
 
-        // 删除该用户原有的所有申请和历史记录（覆盖式提交）
         applicationRepository.deleteByUserId(submission.userId().trim());
         historyRepository.deleteByApplicationPrefix("APP-" + submission.userId().trim());
-        // 记录该用户选择了哪些课程的职位，保存职位偏好
         preferenceRepository.saveForApplication(
                 "APP-" + submission.userId().trim(),
                 normalizedPositionIds.stream()
@@ -102,7 +127,6 @@ public class EnrollmentService {
                         .toList()
         );
 
-        // 为每个职位创建独立的申请和历史记录
         List<String> applicationIds = new ArrayList<>();
         int priority = 1;
         for (String positionId : normalizedPositionIds) {
@@ -122,8 +146,25 @@ public class EnrollmentService {
             historyRepository.save(applicationId, ApplicationStatus.PENDING_REVIEW, "Application submitted", submission.userId(), now);
         }
 
-        // 上传简历
         resumeUploadService.uploadResumeForApplications(submission.userId(), applicationIds, submission.resumeSourceFile());
+        snapshotRepository.save(new EnrollmentProfileSnapshot(
+                snapshotRepository.nextSnapshotId(),
+                submission.userId().trim(),
+                resolveSemesterId(positionsById, normalizedPositionIds),
+                profile.phone(),
+                profile.major(),
+                profile.yearOfStudy(),
+                profile.gpa(),
+                profile.skills(),
+                profile.availability(),
+                profile.notes(),
+                String.join("; ", normalizedPositionIds),
+                applicationIds.isEmpty() ? "" : resumeUploadService.findResumeForApplication(applicationIds.get(0)).map(item -> item.filePath()).orElse(""),
+                applicationIds.isEmpty() ? "" : resumeUploadService.findResumeForApplication(applicationIds.get(0)).map(item -> item.autoFilename()).orElse(""),
+                now
+        ));
+        auditLogService.record("ENROLLMENT_SUBMITTED", submission.userId(),
+                "Submitted TA application package for positions " + String.join("; ", normalizedPositionIds));
     }
 
     private void validateSubmission(EnrollmentSubmission submission) {
@@ -133,10 +174,13 @@ public class EnrollmentService {
         if (submission.userId() == null || submission.userId().isBlank()) {
             throw new IllegalArgumentException("A logged-in TA user is required");
         }
-        userRepository.findAll().stream()
-                .filter(user -> user.userId().equals(submission.userId().trim()))
+        User applicant = userRepository.findAll().stream()
+                .filter(item -> item.userId().equals(submission.userId().trim()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + submission.userId()));
+        if (applicant.taCategory() == TACategory.NON_MODULAR) {
+            throw new IllegalArgumentException("Non-modular TAs cannot apply for formal TA positions");
+        }
         if (submission.major() == null || submission.major().isBlank()) {
             throw new IllegalArgumentException("Major is required");
         }
@@ -156,7 +200,7 @@ public class EnrollmentService {
         if (uniqueIds.size() > MAX_SELECTION) {
             throw new IllegalArgumentException("You can select up to 3 positions only");
         }
-        // 职位状态和截止日期校验
+
         Map<String, TAPosition> positionsById = positionsById(uniqueIds);
         for (String positionId : uniqueIds) {
             TAPosition position = positionsById.get(positionId);
@@ -164,7 +208,13 @@ public class EnrollmentService {
                 throw new IllegalArgumentException("Position is not open for application: " + positionId);
             }
             if (position.deadline() != null && !position.deadline().isBlank()) {
-                LocalDate deadline = LocalDate.parse(position.deadline());
+                LocalDate deadline;
+                try {
+                    deadline = LocalDate.parse(position.deadline());
+                } catch (Exception ex) {
+                    throw new IllegalArgumentException("Position " + positionId
+                            + " has an invalid deadline. Ask the MO to use YYYY-MM-DD format, for example 2026-04-15");
+                }
                 if (deadline.isBefore(LocalDate.now())) {
                     throw new IllegalArgumentException("Position deadline has passed: " + positionId);
                 }
@@ -175,7 +225,17 @@ public class EnrollmentService {
     private String toApplicationId(String userId, String positionId) {
         return "APP-" + userId.trim() + "-" + positionId.trim();
     }
-    // 从 positionRepository 读取所有职位，转换成 Map<String, TAPosition>（键为 positionId）
+
+    private String resolveSemesterId(Map<String, TAPosition> positionsById, Set<String> positionIds) {
+        for (String positionId : positionIds) {
+            TAPosition position = positionsById.get(positionId);
+            if (position != null && position.semesterId() != null && !position.semesterId().isBlank()) {
+                return position.semesterId().trim();
+            }
+        }
+        return "";
+    }
+
     private Map<String, TAPosition> positionsById(Set<String> positionIds) {
         Map<String, TAPosition> positionsById = positionRepository.findAll().stream()
                 .collect(java.util.stream.Collectors.toMap(TAPosition::positionId, position -> position, (left, right) -> left));

@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 public class ResumeUploadService {
@@ -75,6 +76,10 @@ public class ResumeUploadService {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to save resume file", ex);
         }
+    }
+
+    public Optional<ResumeFileRecord> findResumeForApplication(String applicationId) {
+        return resumeFileRepository.findByApplicationId(applicationId);
     }
 
     private String autoFilename(String userId, String extension) {

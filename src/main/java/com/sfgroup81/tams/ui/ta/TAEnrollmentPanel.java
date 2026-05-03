@@ -8,6 +8,8 @@ import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
+import com.sfgroup81.tams.service.EnrollmentAutofillService;
+import com.sfgroup81.tams.service.EnrollmentAutofillSnapshot;
 import com.sfgroup81.tams.service.EnrollmentService;
 import com.sfgroup81.tams.service.EnrollmentSubmission;
 import com.sfgroup81.tams.ui.PrototypeUi;
@@ -27,6 +29,7 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -41,6 +44,7 @@ public class TAEnrollmentPanel extends JPanel {
     private final ApplicantProfileCsvRepository profileRepository;
     private final TAApplicationCsvRepository applicationRepository;
     private final ResumeFileCsvRepository resumeRepository;
+    private final EnrollmentAutofillService enrollmentAutofillService;
     private final EnrollmentService enrollmentService;
     private final Runnable onSubmitted;
 
@@ -60,6 +64,7 @@ public class TAEnrollmentPanel extends JPanel {
     private final JList<TAPosition> positionList = new JList<>(positionModel);
     private final JTextArea previewArea = new JTextArea();
     private final JLabel confirmLabel = new JLabel("Ready to submit your application package.");
+    private final EnrollmentAutofillSnapshot autofillSnapshot;
 
     private Path selectedResumePath;
 
@@ -68,6 +73,7 @@ public class TAEnrollmentPanel extends JPanel {
                              ApplicantProfileCsvRepository profileRepository,
                              TAApplicationCsvRepository applicationRepository,
                              ResumeFileCsvRepository resumeRepository,
+                             EnrollmentAutofillService enrollmentAutofillService,
                              EnrollmentService enrollmentService,
                              Runnable onBack,
                              Runnable onSubmitted,
@@ -76,8 +82,10 @@ public class TAEnrollmentPanel extends JPanel {
         this.profileRepository = profileRepository;
         this.applicationRepository = applicationRepository;
         this.resumeRepository = resumeRepository;
+        this.enrollmentAutofillService = enrollmentAutofillService;
         this.enrollmentService = enrollmentService;
         this.onSubmitted = onSubmitted;
+        this.autofillSnapshot = enrollmentAutofillService.loadLatestForUser(currentUser.userId(), resolveTargetSemester(positions, preselectedPositionId));
 
         setLayout(new BorderLayout());
         setBackground(PrototypeUi.PANEL_BACKGROUND);
@@ -87,7 +95,7 @@ public class TAEnrollmentPanel extends JPanel {
         for (TAPosition position : positions) {
             positionModel.addElement(position);
         }
-        loadExistingData(preselectedPositionId);
+        loadInitialSelection(preselectedPositionId);
         updateStep();
     }
 
@@ -95,7 +103,7 @@ public class TAEnrollmentPanel extends JPanel {
         JPanel body = new JPanel(new BorderLayout());
         body.setOpaque(false);
         body.setBorder(BorderFactory.createEmptyBorder(24, 30, 24, 30));
-        body.add(buildStepBar(), BorderLayout.NORTH);
+        body.add(buildTopArea(), BorderLayout.NORTH);
 
         stepContainer.setOpaque(false);
         stepContainer.add(buildPersonalStep(), "0");
@@ -106,6 +114,27 @@ public class TAEnrollmentPanel extends JPanel {
         body.add(stepContainer, BorderLayout.CENTER);
         body.add(buildActions(), BorderLayout.SOUTH);
         return body;
+    }
+
+    private JPanel buildTopArea() {
+        JPanel top = new JPanel(new BorderLayout(0, 12));
+        top.setOpaque(false);
+        if (autofillSnapshot.hasAnyData()) {
+            top.add(buildAutofillBanner(), BorderLayout.NORTH);
+        }
+        top.add(buildStepBar(), BorderLayout.SOUTH);
+        return top;
+    }
+
+    private JPanel buildAutofillBanner() {
+        JPanel banner = PrototypeUi.createCard();
+        banner.setLayout(new BorderLayout(12, 12));
+        JLabel text = new JLabel("<html><b>Saved application profile found.</b> Copy your previous profile, selected positions, and resume before editing this semester's submission.</html>");
+        banner.add(text, BorderLayout.CENTER);
+        JButton copyButton = PrototypeUi.primaryButton("Copy Last Saved Data");
+        copyButton.addActionListener(e -> applyHistoricalData());
+        banner.add(copyButton, BorderLayout.EAST);
+        return banner;
     }
 
     private JPanel buildStepBar() {
@@ -184,7 +213,9 @@ public class TAEnrollmentPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "You can select up to 3 positions.");
             }
         });
-        card.add(new JScrollPane(positionList), BorderLayout.CENTER);
+        JScrollPane positionScroll = new JScrollPane(positionList);
+        positionScroll.setPreferredSize(new Dimension(780, 360));
+        card.add(positionScroll, BorderLayout.CENTER);
         return card;
     }
 
@@ -194,7 +225,9 @@ public class TAEnrollmentPanel extends JPanel {
         previewArea.setWrapStyleWord(true);
         JPanel card = new JPanel(new BorderLayout());
         card.setOpaque(false);
-        card.add(new JScrollPane(previewArea), BorderLayout.CENTER);
+        JScrollPane previewScroll = new JScrollPane(previewArea);
+        previewScroll.setPreferredSize(new Dimension(820, 420));
+        card.add(previewScroll, BorderLayout.CENTER);
         return card;
     }
 
@@ -258,31 +291,7 @@ public class TAEnrollmentPanel extends JPanel {
         }
     }
 
-    private void loadExistingData(String preselectedPositionId) {
-        profileRepository.findByUserId(currentUser.userId()).ifPresent(this::fillProfile);
-
-        List<TAApplication> applications = applicationRepository.findByUserId(currentUser.userId());
-        if (!applications.isEmpty()) {
-            List<Integer> selected = new ArrayList<>();
-            for (TAApplication application : applications) {
-                for (int i = 0; i < positionModel.size(); i++) {
-                    if (positionModel.get(i).positionId().equals(application.positionId())) {
-                        selected.add(i);
-                        break;
-                    }
-                }
-            }
-            positionList.setSelectedIndices(selected.stream().mapToInt(Integer::intValue).toArray());
-            ResumeFileRecord record = resumeRepository.findByApplicationId(applications.get(0).applicationId()).orElse(null);
-            if (record != null) {
-                resumeField.setText(record.autoFilename());
-                Path existingPath = Path.of(record.filePath());
-                if (Files.exists(existingPath)) {
-                    selectedResumePath = existingPath;
-                }
-            }
-        }
-
+    private void loadInitialSelection(String preselectedPositionId) {
         if (preselectedPositionId != null) {
             for (int i = 0; i < positionModel.size(); i++) {
                 if (positionModel.get(i).positionId().equals(preselectedPositionId)) {
@@ -293,6 +302,21 @@ public class TAEnrollmentPanel extends JPanel {
         }
     }
 
+    private String resolveTargetSemester(List<TAPosition> positions, String preselectedPositionId) {
+        if (preselectedPositionId != null) {
+            for (TAPosition position : positions) {
+                if (position.positionId().equals(preselectedPositionId) && position.semesterId() != null && !position.semesterId().isBlank()) {
+                    return position.semesterId().trim();
+                }
+            }
+        }
+        return positions.stream()
+                .map(TAPosition::semesterId)
+                .filter(item -> item != null && !item.isBlank())
+                .findFirst()
+                .orElse("");
+    }
+
     private void fillProfile(ApplicantProfile profile) {
         phoneField.setText(profile.phone());
         majorField.setText(profile.major());
@@ -301,6 +325,35 @@ public class TAEnrollmentPanel extends JPanel {
         skillsField.setText(profile.skills());
         availabilityField.setText(profile.availability());
         notesArea.setText(profile.notes());
+    }
+
+    private void applyHistoricalData() {
+        if (!autofillSnapshot.hasAnyData()) {
+            JOptionPane.showMessageDialog(this, "No historical application data is available yet.");
+            return;
+        }
+        autofillSnapshot.profile().ifPresent(this::fillProfile);
+
+        List<Integer> selected = new ArrayList<>();
+        for (String positionId : autofillSnapshot.positionIds()) {
+            for (int i = 0; i < positionModel.size(); i++) {
+                if (positionModel.get(i).positionId().equals(positionId)) {
+                    selected.add(i);
+                    break;
+                }
+            }
+        }
+        positionList.setSelectedIndices(selected.stream().mapToInt(Integer::intValue).toArray());
+
+        ResumeFileRecord record = autofillSnapshot.resume().orElse(null);
+        if (record != null) {
+            resumeField.setText(record.autoFilename());
+            Path existingPath = Path.of(record.filePath());
+            if (Files.exists(existingPath)) {
+                selectedResumePath = existingPath;
+            }
+        }
+        JOptionPane.showMessageDialog(this, "Previous application data copied. You can edit everything before submitting.");
     }
 
     private void updateStep() {
@@ -319,7 +372,7 @@ public class TAEnrollmentPanel extends JPanel {
         if (currentStep >= 3) {
             String preview = buildPreviewText();
             previewArea.setText(preview);
-            confirmLabel.setText("<html><body style='width:520px'>" + preview.replace("\n", "<br>") + "</body></html>");
+            confirmLabel.setText("<html><body style='width:760px'>" + preview.replace("\n", "<br>") + "</body></html>");
         }
         stepLayout.show(stepContainer, Integer.toString(currentStep));
     }
