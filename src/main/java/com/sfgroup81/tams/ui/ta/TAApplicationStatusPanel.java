@@ -15,6 +15,7 @@ import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.util.List;
 
 public class TAApplicationStatusPanel extends JPanel {
@@ -49,7 +50,9 @@ public class TAApplicationStatusPanel extends JPanel {
         detailsArea.setWrapStyleWord(true);
 
         content.add(new JScrollPane(table), BorderLayout.CENTER);
-        content.add(new JScrollPane(detailsArea), BorderLayout.EAST);
+        JScrollPane detailsScroll = new JScrollPane(detailsArea);
+        detailsScroll.setPreferredSize(new Dimension(420, 0));
+        content.add(detailsScroll, BorderLayout.EAST);
 
         if (!views.isEmpty()) {
             table.setRowSelectionInterval(0, 0);

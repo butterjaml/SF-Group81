@@ -1,1 +1,6 @@
-invitation_id,application_id,scheduled_at,location,notes,response_status,response_note,created_by,updated_at
+invitation_id,application_id,scheduled_at,location,notes,online_link,response_status,response_note,created_by,updated_at
+IV0001,APP-U0004-P0001,2026-04-12T14:00:00,Room B201,Bring portfolio,,CONFIRMED,I will attend on time,U0002,2026-04-08T08:00:00
+IV0002,APP-U0009-P0003,2026-04-13T10:30:00,Lab 5,Bring notebook,,RESCHEDULE_REQUESTED,Exam clash on that morning,U0003,2026-04-10T20:15:00
+IV0003,APP-U0010-P0004,2026-04-12T16:00:00,Studio 2,Bring portfolio,,PENDING_CONFIRMATION,,U0003,2026-04-10T14:20:00
+IV0004,APP-U0005-P0006,2026-03-28T10:00:00,Room C110,Bring transcript,,CONFIRMED,Ready to attend,U0002,2026-03-26T18:00:00
+IV0005,APP-U0008-P0005,2026-02-21T11:00:00,Zoom,Prepare project examples,,CONFIRMED,Will join online,U0002,2026-02-20T18:30:00
