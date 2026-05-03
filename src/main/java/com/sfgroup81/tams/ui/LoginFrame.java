@@ -17,7 +17,6 @@ import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
 import com.sfgroup81.tams.repository.TAFeedbackCsvRepository;
 import com.sfgroup81.tams.repository.UserCsvRepository;
 import com.sfgroup81.tams.service.CandidateInsightService;
-import com.sfgroup81.tams.service.CandidateScreeningService;
 import com.sfgroup81.tams.service.CasualWorkService;
 import com.sfgroup81.tams.service.InterviewService;
 import com.sfgroup81.tams.service.ApplicationReviewService;
@@ -110,7 +109,6 @@ public class LoginFrame extends JFrame {
             resumeRepository,
             auditLogService
     );
-    private final CandidateScreeningService candidateScreeningService = new CandidateScreeningService(candidateInsightService, auditLogService);
     private final TAFeedbackService feedbackService = new TAFeedbackService(
             feedbackRepository,
             applicationRepository,
@@ -239,7 +237,6 @@ public class LoginFrame extends JFrame {
                 reviewService,
                 interviewService,
                 candidateInsightService,
-                candidateScreeningService,
                 this::showRoleHome
         ));
         refreshFrame();
