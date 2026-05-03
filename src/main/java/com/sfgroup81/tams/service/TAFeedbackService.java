@@ -17,15 +17,25 @@ public class TAFeedbackService {
     private final TAApplicationCsvRepository applicationRepository;
     private final PositionCsvRepository positionRepository;
     private final UserCsvRepository userRepository;
+    private final AuditLogService auditLogService;
 
     public TAFeedbackService(TAFeedbackCsvRepository feedbackRepository,
                              TAApplicationCsvRepository applicationRepository,
                              PositionCsvRepository positionRepository,
                              UserCsvRepository userRepository) {
+        this(feedbackRepository, applicationRepository, positionRepository, userRepository, AuditLogService.noop());
+    }
+
+    public TAFeedbackService(TAFeedbackCsvRepository feedbackRepository,
+                             TAApplicationCsvRepository applicationRepository,
+                             PositionCsvRepository positionRepository,
+                             UserCsvRepository userRepository,
+                             AuditLogService auditLogService) {
         this.feedbackRepository = feedbackRepository;
         this.applicationRepository = applicationRepository;
         this.positionRepository = positionRepository;
         this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
     }
 
     public List<TAFeedbackAssignment> listPendingAssignments(String moUserId) {
@@ -71,7 +81,10 @@ public class TAFeedbackService {
                 comment == null ? "" : comment.trim(),
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
-        return feedbackRepository.save(feedback);
+        TAFeedback saved = feedbackRepository.save(feedback);
+        auditLogService.record("TA_FEEDBACK_SUBMITTED", moUserId,
+                "Submitted TA feedback for " + taUserId + " / " + positionId);
+        return saved;
     }
 
     public double getReputationScore(String taUserId) {
@@ -94,7 +107,13 @@ public class TAFeedbackService {
         return positionRepository.findById(positionId)
                 .map(TAPosition::deadline)
                 .filter(deadline -> deadline != null && !deadline.isBlank())
-                .map(java.time.LocalDate::parse)
+                .flatMap(deadline -> {
+                    try {
+                        return java.util.Optional.of(java.time.LocalDate.parse(deadline));
+                    } catch (Exception ex) {
+                        return java.util.Optional.empty();
+                    }
+                })
                 .filter(deadline -> !deadline.isAfter(today))
                 .isPresent();
     }

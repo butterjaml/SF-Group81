@@ -12,9 +12,15 @@ import java.util.Map;
 
 public class PositionService {
     private final PositionCsvRepository repository;
+    private final AuditLogService auditLogService;
 
     public PositionService(PositionCsvRepository repository) {
+        this(repository, AuditLogService.noop());
+    }
+
+    public PositionService(PositionCsvRepository repository, AuditLogService auditLogService) {
         this.repository = repository;
+        this.auditLogService = auditLogService;
     }
 
     public List<TAPosition> listAll() {
@@ -96,6 +102,7 @@ public class PositionService {
         if (request.headcount() <= 0) {
             throw new IllegalArgumentException("Headcount must be positive");
         }
+        validateDeadline(request.deadline());
         String status = normalizeStatus(request.status());
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         String resolvedId = (request.positionId() == null || request.positionId().isBlank())
@@ -126,7 +133,10 @@ public class PositionService {
                 existing == null ? now : existing.createdAt(),
                 now
         );
-        return repository.saveOrUpdate(saved);
+        TAPosition result = repository.saveOrUpdate(saved);
+        auditLogService.record(existing == null ? "POSITION_CREATED" : "POSITION_UPDATED", operatorUserId,
+                result.positionId() + " / " + result.courseName() + " / " + result.status());
+        return result;
     }
 
     public TAPosition unpublish(String positionId) {
@@ -154,7 +164,10 @@ public class PositionService {
                 existing.createdAt(),
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
-        return repository.saveOrUpdate(closed);
+        TAPosition result = repository.saveOrUpdate(closed);
+        auditLogService.record("POSITION_UNPUBLISHED", existing.createdBy(),
+                "Unpublished " + result.positionId() + " / " + result.courseName());
+        return result;
     }
 
     public void closeExpiredPositions() {
@@ -236,6 +249,18 @@ public class PositionService {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private void validateDeadline(String deadline) {
+        String value = safe(deadline);
+        if (value.isBlank()) {
+            return;
+        }
+        try {
+            LocalDate.parse(value);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Deadline must use YYYY-MM-DD format, for example 2026-04-15");
+        }
     }
 
     private String normalizeStatus(String status) {

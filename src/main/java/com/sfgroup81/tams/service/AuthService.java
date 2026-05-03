@@ -5,9 +5,15 @@ import com.sfgroup81.tams.repository.UserCsvRepository;
 
 public class AuthService {
     private final UserCsvRepository userCsvRepository;
+    private final AuditLogService auditLogService;
 
     public AuthService(UserCsvRepository userCsvRepository) {
+        this(userCsvRepository, new AuditLogService(new com.sfgroup81.tams.repository.AuditLogCsvRepository(), userCsvRepository));
+    }
+
+    public AuthService(UserCsvRepository userCsvRepository, AuditLogService auditLogService) {
         this.userCsvRepository = userCsvRepository;
+        this.auditLogService = auditLogService;
     }
 
     public User login(String email, String password) {
@@ -28,6 +34,7 @@ public class AuthService {
 
         userCsvRepository.updateLastLoginAt(user.userId());
         SessionContext.setCurrentUser(user);
+        auditLogService.record("LOGIN_SUCCESS", user.userId(), "User signed in with email " + user.email());
         return user;
     }
 }

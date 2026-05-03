@@ -13,17 +13,26 @@ public class ApplicationStatusService {
     private final TAApplicationCsvRepository applicationRepository;
     private final ApplicationStatusHistoryCsvRepository historyRepository;
     private final PositionCsvRepository positionRepository;
+    private final AuditLogService auditLogService;
 
     public ApplicationStatusService(TAApplicationCsvRepository applicationRepository,
                                     ApplicationStatusHistoryCsvRepository historyRepository,
                                     PositionCsvRepository positionRepository) {
+        this(applicationRepository, historyRepository, positionRepository, AuditLogService.noop());
+    }
+
+    public ApplicationStatusService(TAApplicationCsvRepository applicationRepository,
+                                    ApplicationStatusHistoryCsvRepository historyRepository,
+                                    PositionCsvRepository positionRepository,
+                                    AuditLogService auditLogService) {
         this.applicationRepository = applicationRepository;
         this.historyRepository = historyRepository;
         this.positionRepository = positionRepository;
+        this.auditLogService = auditLogService;
     }
 
     public List<ApplicantApplicationView> listForApplicant(String userId) {
-        return applicationRepository.findByUserId(userId).stream()
+        List<ApplicantApplicationView> views = applicationRepository.findByUserId(userId).stream()
                 .sorted(Comparator.comparingInt(TAApplication::priorityNo))
                 .map(application -> new ApplicantApplicationView(
                         application,
@@ -31,6 +40,8 @@ public class ApplicationStatusService {
                         historyRepository.findByApplicationId(application.applicationId())
                 ))
                 .toList();
+        auditLogService.record("DATA_ACCESS", userId, "Viewed TA application status and progress records");
+        return views;
     }
 
     private TAPosition findPosition(String positionId) {

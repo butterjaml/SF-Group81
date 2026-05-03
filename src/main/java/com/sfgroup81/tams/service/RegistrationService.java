@@ -12,9 +12,15 @@ public class RegistrationService {
     private static final Logger LOGGER = Logger.getLogger(RegistrationService.class.getName());
 
     private final UserCsvRepository repository;
+    private final AuditLogService auditLogService;
 
     public RegistrationService(UserCsvRepository repository) {
+        this(repository, new AuditLogService(new com.sfgroup81.tams.repository.AuditLogCsvRepository(), repository));
+    }
+
+    public RegistrationService(UserCsvRepository repository, AuditLogService auditLogService) {
         this.repository = repository;
+        this.auditLogService = auditLogService;
     }
 
     public User register(RegistrationRequest request) {
@@ -59,6 +65,7 @@ public class RegistrationService {
                 taCategory
         );
         LOGGER.log(Level.INFO, "Registration success for user: {0}", user.userId());
+        auditLogService.record("REGISTRATION", user.userId(), "Self-registered as " + user.role());
         return user;
     }
 }
