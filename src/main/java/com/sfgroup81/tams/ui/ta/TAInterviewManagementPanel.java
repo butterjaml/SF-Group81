@@ -17,6 +17,7 @@ import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -63,6 +64,7 @@ public class TAInterviewManagementPanel extends JPanel {
 
         JPanel right = PrototypeUi.createVerticalCard();
         right.setLayout(new BorderLayout(8, 8));
+        right.setPreferredSize(new Dimension(360, 0));
         detailsArea.setEditable(false);
         detailsArea.setLineWrap(true);
         detailsArea.setWrapStyleWord(true);
@@ -118,6 +120,7 @@ public class TAInterviewManagementPanel extends JPanel {
         detailsArea.setText("""
                 Interview Time: %s
                 Location: %s
+                Online Link: %s
                 Current Response: %s
 
                 Notes:
@@ -128,6 +131,7 @@ public class TAInterviewManagementPanel extends JPanel {
                 """.formatted(
                 invitation.scheduledAt(),
                 invitation.location(),
+                invitation.onlineLink().isBlank() ? "-" : invitation.onlineLink(),
                 invitation.responseStatus(),
                 invitation.notes().isBlank() ? "-" : invitation.notes(),
                 invitation.responseNote().isBlank() ? "-" : invitation.responseNote()

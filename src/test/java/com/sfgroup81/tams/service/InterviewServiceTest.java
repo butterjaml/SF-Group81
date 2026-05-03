@@ -101,13 +101,18 @@ class InterviewServiceTest {
                 scheduledAt,
                 "Room 502",
                 "Bring your transcript",
+                "https://meet.example.com/ta-alice",
                 "U0002"
         );
 
         assertEquals(ApplicationStatus.INTERVIEW, applicationRepository.findById("APP-U0001-P0001").orElseThrow().status());
         assertEquals(InterviewResponseStatus.PENDING_CONFIRMATION, invitation.responseStatus());
+        assertEquals("https://meet.example.com/ta-alice", invitation.onlineLink());
         assertEquals(2, historyRepository.findByApplicationId("APP-U0001-P0001").size());
-        assertTrue(service.listReminderMessages("U0001", LocalDateTime.now()).getFirst().contains("Room 502"));
+        List<com.sfgroup81.tams.model.ApplicationStatusHistory> historyAfterSchedule = historyRepository.findByApplicationId("APP-U0001-P0001");
+        assertTrue(historyAfterSchedule.get(historyAfterSchedule.size() - 1).note().contains("https://meet.example.com/ta-alice"));
+        List<String> reminders = service.listReminderMessages("U0001", LocalDateTime.now());
+        assertTrue(reminders.get(0).contains("Room 502"));
 
         InterviewInvitation updated = service.respondToInterview(
                 invitation.invitationId(),
@@ -119,7 +124,8 @@ class InterviewServiceTest {
         assertEquals(InterviewResponseStatus.CONFIRMED, updated.responseStatus());
         assertEquals("I will attend on time.", updated.responseNote());
         assertEquals(3, historyRepository.findByApplicationId("APP-U0001-P0001").size());
-        assertTrue(historyRepository.findByApplicationId("APP-U0001-P0001").getLast().note().contains("confirmed"));
+        List<com.sfgroup81.tams.model.ApplicationStatusHistory> historyAfterReply = historyRepository.findByApplicationId("APP-U0001-P0001");
+        assertTrue(historyAfterReply.get(historyAfterReply.size() - 1).note().contains("confirmed"));
         assertEquals(InterviewResponseStatus.CONFIRMED,
                 service.findLatestInvitationForApplication("APP-U0001-P0001").orElseThrow().responseStatus());
         assertEquals("I will attend on time.",
