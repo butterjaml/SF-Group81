@@ -9,6 +9,7 @@ import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
 import com.sfgroup81.tams.repository.CasualWorkApplicationCsvRepository;
 import com.sfgroup81.tams.repository.CasualWorkPostingCsvRepository;
+import com.sfgroup81.tams.repository.EnrollmentProfileSnapshotCsvRepository;
 import com.sfgroup81.tams.repository.InterviewInvitationCsvRepository;
 import com.sfgroup81.tams.repository.InternalReferralCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
@@ -22,6 +23,7 @@ import com.sfgroup81.tams.service.InterviewService;
 import com.sfgroup81.tams.service.ApplicationReviewService;
 import com.sfgroup81.tams.service.ApplicationStatusService;
 import com.sfgroup81.tams.service.AuditLogService;
+import com.sfgroup81.tams.service.EnrollmentAutofillService;
 import com.sfgroup81.tams.service.EnrollmentService;
 import com.sfgroup81.tams.service.PositionService;
 import com.sfgroup81.tams.service.ResumeUploadService;
@@ -53,6 +55,7 @@ public class LoginFrame extends JFrame {
     private final ApplicantProfileCsvRepository profileRepository = new ApplicantProfileCsvRepository();
     private final ApplicationPreferenceCsvRepository preferenceRepository = new ApplicationPreferenceCsvRepository();
     private final ResumeFileCsvRepository resumeRepository = new ResumeFileCsvRepository();
+    private final EnrollmentProfileSnapshotCsvRepository enrollmentSnapshotRepository = new EnrollmentProfileSnapshotCsvRepository();
     private final TAApplicationCsvRepository applicationRepository = new TAApplicationCsvRepository();
     private final ApplicationStatusHistoryCsvRepository historyRepository = new ApplicationStatusHistoryCsvRepository();
     private final InterviewInvitationCsvRepository interviewRepository = new InterviewInvitationCsvRepository();
@@ -64,6 +67,12 @@ public class LoginFrame extends JFrame {
     private final AuditLogService auditLogService = new AuditLogService(auditLogRepository, userRepository);
     private final PositionService positionService = new PositionService(positionRepository, auditLogService);
     private final ResumeUploadService resumeUploadService = new ResumeUploadService(java.nio.file.Path.of("data"), resumeRepository, userRepository);
+    private final EnrollmentAutofillService enrollmentAutofillService = new EnrollmentAutofillService(
+            profileRepository,
+            applicationRepository,
+            resumeRepository,
+            enrollmentSnapshotRepository
+    );
     private final EnrollmentService enrollmentService = new EnrollmentService(
             userRepository,
             positionRepository,
@@ -71,7 +80,9 @@ public class LoginFrame extends JFrame {
             resumeUploadService,
             applicationRepository,
             historyRepository,
-            preferenceRepository
+            preferenceRepository,
+            enrollmentSnapshotRepository,
+            auditLogService
     );
     private final ApplicationStatusService applicationStatusService = new ApplicationStatusService(
             applicationRepository,
@@ -187,6 +198,7 @@ public class LoginFrame extends JFrame {
                 profileRepository,
                 applicationRepository,
                 resumeRepository,
+                enrollmentAutofillService,
                 enrollmentService,
                 this::showRoleHome,
                 this::showTAStatus,
