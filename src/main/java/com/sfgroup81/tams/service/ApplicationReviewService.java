@@ -13,13 +13,22 @@ public class ApplicationReviewService {
     private final TAApplicationCsvRepository applicationRepository;
     private final ApplicationStatusHistoryCsvRepository historyRepository;
     private final PositionCsvRepository positionRepository;
+    private final AuditLogService auditLogService;
 
     public ApplicationReviewService(TAApplicationCsvRepository applicationRepository,
                                     ApplicationStatusHistoryCsvRepository historyRepository,
                                     PositionCsvRepository positionRepository) {
+        this(applicationRepository, historyRepository, positionRepository, AuditLogService.noop());
+    }
+
+    public ApplicationReviewService(TAApplicationCsvRepository applicationRepository,
+                                    ApplicationStatusHistoryCsvRepository historyRepository,
+                                    PositionCsvRepository positionRepository,
+                                    AuditLogService auditLogService) {
         this.applicationRepository = applicationRepository;
         this.historyRepository = historyRepository;
         this.positionRepository = positionRepository;
+        this.auditLogService = auditLogService;
     }
 
     public TAApplication updateStatus(String applicationId, ApplicationStatus status, String note, String changedBy) {
@@ -41,6 +50,8 @@ public class ApplicationReviewService {
         );
         applicationRepository.saveOrUpdate(updated);
         historyRepository.save(existing.applicationId(), status, note, changedBy, now);
+        auditLogService.record("APPLICATION_STATUS_CHANGED", changedBy,
+                "Updated " + applicationId + " to " + status);
         return updated;
     }
 }
