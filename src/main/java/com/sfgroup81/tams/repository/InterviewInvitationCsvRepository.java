@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class InterviewInvitationCsvRepository {
-    private static final String HEADER = "invitation_id,application_id,scheduled_at,location,notes,response_status,response_note,created_by,updated_at";
+    private static final String HEADER = "invitation_id,application_id,scheduled_at,location,notes,online_link,response_status,response_note,created_by,updated_at";
     private final Path invitationCsv;
 
     public InterviewInvitationCsvRepository() {
@@ -46,10 +46,11 @@ public class InterviewInvitationCsvRepository {
                         cols[2],
                         cols[3],
                         cols[4],
-                        InterviewResponseStatus.valueOf(cols[5]),
-                        cols[6],
-                        cols[7],
-                        cols[8]
+                        cols.length >= 10 ? cols[5] : "",
+                        InterviewResponseStatus.valueOf(cols.length >= 10 ? cols[6] : cols[5]),
+                        cols.length >= 10 ? cols[7] : cols[6],
+                        cols.length >= 10 ? cols[8] : cols[7],
+                        cols.length >= 10 ? cols[9] : cols[8]
                 ));
             }
             return invitations;
@@ -99,6 +100,7 @@ public class InterviewInvitationCsvRepository {
                     sanitize(item.scheduledAt()),
                     sanitize(item.location()),
                     sanitize(item.notes()),
+                    sanitize(item.onlineLink()),
                     item.responseStatus().name(),
                     sanitize(item.responseNote()),
                     sanitize(item.createdBy()),

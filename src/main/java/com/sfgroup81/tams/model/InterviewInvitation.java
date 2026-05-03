@@ -6,6 +6,7 @@ public record InterviewInvitation(
         String scheduledAt,
         String location,
         String notes,
+        String onlineLink,
         InterviewResponseStatus responseStatus,
         String responseNote,
         String createdBy,

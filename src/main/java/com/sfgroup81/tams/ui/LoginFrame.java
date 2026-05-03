@@ -2,13 +2,13 @@ package com.sfgroup81.tams.ui;
 
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.model.User;
+import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.AuditLogCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
 import com.sfgroup81.tams.repository.CasualWorkApplicationCsvRepository;
 import com.sfgroup81.tams.repository.CasualWorkPostingCsvRepository;
-import com.sfgroup81.tams.repository.EnrollmentProfileSnapshotCsvRepository;
 import com.sfgroup81.tams.repository.InterviewInvitationCsvRepository;
 import com.sfgroup81.tams.repository.InternalReferralCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
@@ -17,23 +17,19 @@ import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
 import com.sfgroup81.tams.repository.TAFeedbackCsvRepository;
 import com.sfgroup81.tams.repository.UserCsvRepository;
 import com.sfgroup81.tams.service.CandidateInsightService;
-import com.sfgroup81.tams.service.CandidateScreeningService;
 import com.sfgroup81.tams.service.CasualWorkService;
 import com.sfgroup81.tams.service.InterviewService;
 import com.sfgroup81.tams.service.ApplicationReviewService;
 import com.sfgroup81.tams.service.ApplicationStatusService;
 import com.sfgroup81.tams.service.AuditLogService;
-import com.sfgroup81.tams.service.EnrollmentAutofillService;
 import com.sfgroup81.tams.service.EnrollmentService;
 import com.sfgroup81.tams.service.PositionService;
 import com.sfgroup81.tams.service.ResumeUploadService;
 import com.sfgroup81.tams.service.SessionContext;
 import com.sfgroup81.tams.service.TAFeedbackService;
-import com.sfgroup81.tams.service.UserManagementService;
 import com.sfgroup81.tams.ui.admin.AdminAuditLogPanel;
 import com.sfgroup81.tams.ui.admin.AdminCasualWorkPanel;
 import com.sfgroup81.tams.ui.admin.AdminDashboardPanel;
-import com.sfgroup81.tams.ui.admin.AdminUserManagementPanel;
 import com.sfgroup81.tams.ui.auth.AuthLandingPanel;
 import com.sfgroup81.tams.ui.mo.MODashboardPanel;
 import com.sfgroup81.tams.ui.mo.MOCandidateManagementPanel;
@@ -57,7 +53,6 @@ public class LoginFrame extends JFrame {
     private final ApplicantProfileCsvRepository profileRepository = new ApplicantProfileCsvRepository();
     private final ApplicationPreferenceCsvRepository preferenceRepository = new ApplicationPreferenceCsvRepository();
     private final ResumeFileCsvRepository resumeRepository = new ResumeFileCsvRepository();
-    private final EnrollmentProfileSnapshotCsvRepository enrollmentSnapshotRepository = new EnrollmentProfileSnapshotCsvRepository();
     private final TAApplicationCsvRepository applicationRepository = new TAApplicationCsvRepository();
     private final ApplicationStatusHistoryCsvRepository historyRepository = new ApplicationStatusHistoryCsvRepository();
     private final InterviewInvitationCsvRepository interviewRepository = new InterviewInvitationCsvRepository();
@@ -69,12 +64,6 @@ public class LoginFrame extends JFrame {
     private final AuditLogService auditLogService = new AuditLogService(auditLogRepository, userRepository);
     private final PositionService positionService = new PositionService(positionRepository, auditLogService);
     private final ResumeUploadService resumeUploadService = new ResumeUploadService(java.nio.file.Path.of("data"), resumeRepository, userRepository);
-    private final EnrollmentAutofillService enrollmentAutofillService = new EnrollmentAutofillService(
-            profileRepository,
-            applicationRepository,
-            resumeRepository,
-            enrollmentSnapshotRepository
-    );
     private final EnrollmentService enrollmentService = new EnrollmentService(
             userRepository,
             positionRepository,
@@ -82,9 +71,7 @@ public class LoginFrame extends JFrame {
             resumeUploadService,
             applicationRepository,
             historyRepository,
-            preferenceRepository,
-            enrollmentSnapshotRepository,
-            auditLogService
+            preferenceRepository
     );
     private final ApplicationStatusService applicationStatusService = new ApplicationStatusService(
             applicationRepository,
@@ -108,8 +95,8 @@ public class LoginFrame extends JFrame {
             casualWorkPostingRepository,
             casualWorkApplicationRepository,
             userRepository,
-            applicationRepository,
-            positionRepository,
+            new TAApplicationCsvRepository(),
+            new PositionCsvRepository(),
             auditLogService
     );
     private final CandidateInsightService candidateInsightService = new CandidateInsightService(
@@ -118,11 +105,8 @@ public class LoginFrame extends JFrame {
             profileRepository,
             positionRepository,
             internalReferralRepository,
-            feedbackRepository,
-            resumeRepository,
-            auditLogService
+            feedbackRepository
     );
-    private final CandidateScreeningService candidateScreeningService = new CandidateScreeningService(candidateInsightService, auditLogService);
     private final TAFeedbackService feedbackService = new TAFeedbackService(
             feedbackRepository,
             applicationRepository,
@@ -130,7 +114,6 @@ public class LoginFrame extends JFrame {
             userRepository,
             auditLogService
     );
-    private final UserManagementService userManagementService = new UserManagementService(userRepository, auditLogService);
 
     public LoginFrame() {
         setTitle("TA Management System");
@@ -161,7 +144,7 @@ public class LoginFrame extends JFrame {
                     this::showTAStatus,
                     this::showTAInterviews,
                     this::showTACasualWork,
-                    casualWorkService.canApplyCasualWork(currentUser.userId()),
+                    currentUser.taCategory() == TACategory.NON_MODULAR,
                     () -> showTAEnrollment(null),
                     this::logout
             ));
@@ -175,7 +158,7 @@ public class LoginFrame extends JFrame {
             ));
         } else {
             setContentPane(new AdminDashboardPanel(
-                    this::showAdminUserManagement,
+                    () -> showPlannedMessage("User management is planned for Sprint3."),
                     this::showAdminCasualWork,
                     this::showAdminAuditLog,
                     this::logout
@@ -204,7 +187,6 @@ public class LoginFrame extends JFrame {
                 profileRepository,
                 applicationRepository,
                 resumeRepository,
-                enrollmentAutofillService,
                 enrollmentService,
                 this::showRoleHome,
                 this::showTAStatus,
@@ -226,8 +208,8 @@ public class LoginFrame extends JFrame {
     }
 
     private void showTACasualWork() {
-        if (currentUser == null || !casualWorkService.canApplyCasualWork(currentUser.userId())) {
-            showPlannedMessage("Casual work is available only to TAs hired for the current semester.");
+        if (currentUser == null || currentUser.taCategory() != TACategory.NON_MODULAR) {
+            showPlannedMessage("Casual work is available only to non-modular TAs.");
             return;
         }
         auditLogService.record("DATA_ACCESS", currentUser.userId(), "Opened TA casual work browser");
@@ -246,12 +228,13 @@ public class LoginFrame extends JFrame {
         setContentPane(new MOCandidateManagementPanel(
                 currentUser,
                 positionRepository,
+                applicationRepository,
                 historyRepository,
+                profileRepository,
+                userRepository,
                 reviewService,
                 interviewService,
                 candidateInsightService,
-                candidateScreeningService,
-                auditLogService,
                 this::showRoleHome
         ));
         refreshFrame();
@@ -266,11 +249,6 @@ public class LoginFrame extends JFrame {
     private void showAdminCasualWork() {
         auditLogService.record("DATA_ACCESS", currentUser.userId(), "Opened admin casual work management");
         setContentPane(new AdminCasualWorkPanel(currentUser, casualWorkService, userRepository, this::showRoleHome));
-        refreshFrame();
-    }
-
-    private void showAdminUserManagement() {
-        setContentPane(new AdminUserManagementPanel(currentUser, userManagementService, auditLogService, this::showRoleHome));
         refreshFrame();
     }
 
