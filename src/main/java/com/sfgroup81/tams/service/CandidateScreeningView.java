@@ -8,6 +8,10 @@ public record CandidateScreeningView(
         double gpaValue,
         boolean hasPastTaExperience,
         double skillMatchScore,
-        List<String> matchedRequirementKeywords
+        List<String> matchedRequirementKeywords,
+        List<String> missingRequirementKeywords,
+        String aiSummary,
+        String strengths,
+        String risks
 ) {
 }

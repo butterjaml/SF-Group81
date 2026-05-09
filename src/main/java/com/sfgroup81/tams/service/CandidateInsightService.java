@@ -112,7 +112,11 @@ public class CandidateInsightService {
                     .filter(item -> item.userId().equals(application.userId()))
                     .findFirst()
                     .orElse(null);
-            ApplicantProfile profile = profileRepository.findByUserId(application.userId()).orElse(null);
+            String semesterId = safe(application.semesterId()).isBlank()
+                    ? positionRepository.findById(application.positionId()).map(TAPosition::semesterId).orElse("")
+                    : application.semesterId();
+            ApplicantProfile profile = profileRepository.findByUserIdAndSemesterId(application.userId(), semesterId)
+                    .orElseGet(() -> profileRepository.findByUserId(application.userId()).orElse(null));
             Optional<InternalReferral> referral = referralRepository.findByUserId(application.userId());
             if (internallyRecommendedOnly && referral.filter(InternalReferral::hasRecommenders).isEmpty()) {
                 continue;
