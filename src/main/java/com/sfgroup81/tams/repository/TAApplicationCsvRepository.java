@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class TAApplicationCsvRepository {
-    private static final String HEADER = "application_id,user_id,position_id,priority_no,status,feedback,submitted_at,updated_at";
+    private static final String HEADER = "application_id,user_id,position_id,semester_id,priority_no,status,feedback,submitted_at,updated_at";
     private final Path applicationCsv;
 
     public TAApplicationCsvRepository() {
@@ -41,16 +41,31 @@ public class TAApplicationCsvRepository {
                 if (cols.length < 8) {
                     continue;
                 }
-                applications.add(new TAApplication(
-                        cols[0],
-                        cols[1],
-                        cols[2],
-                        parseInt(cols[3]),
-                        ApplicationStatus.valueOf(cols[4]),
-                        cols[5],
-                        cols[6],
-                        cols[7]
-                ));
+                if (cols.length >= 9) {
+                    applications.add(new TAApplication(
+                            cols[0],
+                            cols[1],
+                            cols[2],
+                            cols[3],
+                            parseInt(cols[4]),
+                            ApplicationStatus.valueOf(cols[5]),
+                            cols[6],
+                            cols[7],
+                            cols[8]
+                    ));
+                } else {
+                    applications.add(new TAApplication(
+                            cols[0],
+                            cols[1],
+                            cols[2],
+                            "",
+                            parseInt(cols[3]),
+                            ApplicationStatus.valueOf(cols[4]),
+                            cols[5],
+                            cols[6],
+                            cols[7]
+                    ));
+                }
             }
             return applications;
         } catch (IOException ex) {
@@ -65,6 +80,15 @@ public class TAApplicationCsvRepository {
     public List<TAApplication> findByUserId(String userId) {
         return findAll().stream()
                 .filter(item -> item.userId().equals(userId))
+                .sorted(Comparator.comparingInt(TAApplication::priorityNo))
+                .toList();
+    }
+
+    public List<TAApplication> findByUserIdAndSemesterId(String userId, String semesterId) {
+        String normalizedSemesterId = safe(semesterId);
+        return findAll().stream()
+                .filter(item -> item.userId().equals(userId))
+                .filter(item -> safe(item.semesterId()).equalsIgnoreCase(normalizedSemesterId))
                 .sorted(Comparator.comparingInt(TAApplication::priorityNo))
                 .toList();
     }
@@ -87,6 +111,14 @@ public class TAApplicationCsvRepository {
         rewriteAll(remaining);
     }
 
+    public void deleteByUserIdAndSemesterId(String userId, String semesterId) {
+        List<TAApplication> remaining = new ArrayList<>(findAll());
+        String normalizedSemesterId = safe(semesterId);
+        remaining.removeIf(item -> item.userId().equals(userId)
+                && safe(item.semesterId()).equalsIgnoreCase(normalizedSemesterId));
+        rewriteAll(remaining);
+    }
+
     private void rewriteAll(List<TAApplication> rows) {
         List<String> lines = new ArrayList<>();
         lines.add(HEADER);
@@ -95,6 +127,7 @@ public class TAApplicationCsvRepository {
                     sanitize(item.applicationId()),
                     sanitize(item.userId()),
                     sanitize(item.positionId()),
+                    sanitize(item.semesterId()),
                     Integer.toString(item.priorityNo()),
                     item.status().name(),
                     sanitize(item.feedback()),
@@ -118,6 +151,10 @@ public class TAApplicationCsvRepository {
     }
 
     private String sanitize(String value) {
-        return value == null ? "" : value.replace(",", " ").trim();
+        return safe(value).replace(",", " ");
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
     }
 }

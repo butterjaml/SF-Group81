@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class ApplicantProfileCsvRepository {
-    private static final String HEADER = "user_id,phone,major,year_of_study,gpa,skills,availability,notes,updated_at";
+    private static final String HEADER = "user_id,semester_id,phone,major,year_of_study,gpa,skills,availability,notes,updated_at";
     private final Path profileCsv;
 
     public ApplicantProfileCsvRepository() {
@@ -39,9 +39,15 @@ public class ApplicantProfileCsvRepository {
                 if (cols.length < 9) {
                     continue;
                 }
-                profiles.add(new ApplicantProfile(
-                        cols[0], cols[1], cols[2], cols[3], cols[4], cols[5], cols[6], cols[7], cols[8]
-                ));
+                if (cols.length >= 10) {
+                    profiles.add(new ApplicantProfile(
+                            cols[0], cols[1], cols[2], cols[3], cols[4], cols[5], cols[6], cols[7], cols[8], cols[9]
+                    ));
+                } else {
+                    profiles.add(new ApplicantProfile(
+                            cols[0], "", cols[1], cols[2], cols[3], cols[4], cols[5], cols[6], cols[7], cols[8]
+                    ));
+                }
             }
             return profiles;
         } catch (IOException ex) {
@@ -50,12 +56,23 @@ public class ApplicantProfileCsvRepository {
     }
 
     public Optional<ApplicantProfile> findByUserId(String userId) {
-        return findAll().stream().filter(profile -> profile.userId().equals(userId)).findFirst();
+        return findAll().stream()
+                .filter(profile -> profile.userId().equals(userId))
+                .max(java.util.Comparator.comparing(ApplicantProfile::updatedAt));
+    }
+
+    public Optional<ApplicantProfile> findByUserIdAndSemesterId(String userId, String semesterId) {
+        String normalizedSemesterId = safe(semesterId);
+        return findAll().stream()
+                .filter(profile -> profile.userId().equals(userId))
+                .filter(profile -> safe(profile.semesterId()).equalsIgnoreCase(normalizedSemesterId))
+                .max(java.util.Comparator.comparing(ApplicantProfile::updatedAt));
     }
 
     public ApplicantProfile saveOrUpdate(ApplicantProfile profile) {
         List<ApplicantProfile> all = new ArrayList<>(findAll());
-        all.removeIf(item -> item.userId().equals(profile.userId()));
+        all.removeIf(item -> item.userId().equals(profile.userId())
+                && safe(item.semesterId()).equalsIgnoreCase(safe(profile.semesterId())));
         all.add(profile);
         rewriteAll(all);
         return profile;
@@ -67,6 +84,7 @@ public class ApplicantProfileCsvRepository {
         for (ApplicantProfile item : rows) {
             lines.add(String.join(",",
                     sanitize(item.userId()),
+                    sanitize(item.semesterId()),
                     sanitize(item.phone()),
                     sanitize(item.major()),
                     sanitize(item.yearOfStudy()),
@@ -85,6 +103,10 @@ public class ApplicantProfileCsvRepository {
     }
 
     private String sanitize(String value) {
-        return value == null ? "" : value.replace(",", " ").trim();
+        return safe(value).replace(",", " ");
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
     }
 }
