@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PositionServiceTest {
     @TempDir
@@ -98,5 +99,33 @@ class PositionServiceTest {
 
         assertEquals("CLOSED", repository.findById("P0001").orElseThrow().status());
         assertEquals("DRAFT", repository.findById("P0002").orElseThrow().status());
+    }
+
+    @Test
+    void savePositionShouldRejectInvalidDeadlineFormat() {
+        DataBootstrap.initialize(tempDir);
+        PositionService service = new PositionService(new PositionCsvRepository(tempDir));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.savePosition(new PositionUpsertRequest(
+                "",
+                "COMP901",
+                "Compiler Design",
+                "Dr. Li",
+                "2026S1",
+                "Modular TA",
+                1,
+                "04/15/2026",
+                "PUBLISHED",
+                "Compiler TA",
+                "Support labs",
+                "4 hours/week",
+                "Base 80 yuan/hour",
+                "Requirement",
+                "",
+                "",
+                "U0002"
+        ), "U0002"));
+
+        assertEquals("Deadline must use YYYY-MM-DD format, for example 2026-04-15", ex.getMessage());
     }
 }

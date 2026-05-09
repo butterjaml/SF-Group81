@@ -37,6 +37,7 @@ public class PositionManagePanel extends JPanel {
     private final JTextArea mandatoryArea = new JTextArea(3, 24);
     private final JTextArea preferredArea = new JTextArea(3, 24);
     private final JTextArea bonusArea = new JTextArea(3, 24);
+    private final JTextArea aiCriteriaArea = new JTextArea(4, 24);
     private final JTextArea previewArea = new JTextArea(12, 28);
 
     private final DefaultTableModel tableModel = new DefaultTableModel(
@@ -97,6 +98,7 @@ public class PositionManagePanel extends JPanel {
         addField(formPanel, gbc, row++, "Mandatory requirements", new JScrollPane(mandatoryArea));
         addField(formPanel, gbc, row++, "Preferred requirements", new JScrollPane(preferredArea));
         addField(formPanel, gbc, row++, "Additional requirements", new JScrollPane(bonusArea));
+        addField(formPanel, gbc, row++, "AI skill weights", new JScrollPane(aiCriteriaArea));
 
         JButton saveDraftButton = PrototypeUi.secondaryButton("Save Draft");
         saveDraftButton.addActionListener(e -> save("DRAFT"));
@@ -145,6 +147,7 @@ public class PositionManagePanel extends JPanel {
                     mandatoryArea.getText(),
                     preferredArea.getText(),
                     bonusArea.getText(),
+                    aiCriteriaArea.getText(),
                     SessionContext.getCurrentUser() == null ? "SYSTEM" : SessionContext.getCurrentUser().userId()
             ), SessionContext.getCurrentUser() == null ? "SYSTEM" : SessionContext.getCurrentUser().userId());
             positionIdField.setText(saved.positionId());
@@ -204,6 +207,7 @@ public class PositionManagePanel extends JPanel {
         mandatoryArea.setText(position.mandatoryRequirements());
         preferredArea.setText(position.preferredRequirements());
         bonusArea.setText(position.bonusRequirements());
+        aiCriteriaArea.setText(position.aiScreeningCriteria());
         previewArea.setText(buildPreview(position));
     }
 
@@ -227,6 +231,9 @@ public class PositionManagePanel extends JPanel {
 
                 Additional:
                 %s
+
+                AI Screening Skill Weights:
+                %s
                 """.formatted(
                 position.title(),
                 position.courseName(),
@@ -238,7 +245,8 @@ public class PositionManagePanel extends JPanel {
                 position.responsibilities(),
                 formatRequirementBlock(position.mandatoryRequirements()),
                 formatRequirementBlock(position.preferredRequirements()),
-                formatRequirementBlock(position.bonusRequirements())
+                formatRequirementBlock(position.bonusRequirements()),
+                formatRequirementBlock(position.aiScreeningCriteria())
         );
     }
 
