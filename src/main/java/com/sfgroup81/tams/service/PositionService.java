@@ -13,17 +13,28 @@ import java.util.Map;
 public class PositionService {
     private final PositionCsvRepository repository;
     private final AuditLogService auditLogService;
+    private final SemesterService semesterService;
 
     public PositionService(PositionCsvRepository repository) {
-        this(repository, AuditLogService.noop());
+        this(repository, null, AuditLogService.noop());
     }
 
     public PositionService(PositionCsvRepository repository, AuditLogService auditLogService) {
+        this(repository, null, auditLogService);
+    }
+
+    public PositionService(PositionCsvRepository repository, SemesterService semesterService, AuditLogService auditLogService) {
         this.repository = repository;
+        this.semesterService = semesterService;
         this.auditLogService = auditLogService;
     }
 
     public List<TAPosition> listAll() {
+        closeExpiredPositions();
+        return visiblePositions(repository.findAll());
+    }
+
+    public List<TAPosition> listAllSemesters() {
         closeExpiredPositions();
         return repository.findAll();
     }
@@ -129,6 +140,7 @@ public class PositionService {
                 safe(request.mandatoryRequirements()),
                 safe(request.preferredRequirements()),
                 safe(request.bonusRequirements()),
+                safe(request.aiScreeningCriteria()),
                 creator,
                 existing == null ? now : existing.createdAt(),
                 now
@@ -160,6 +172,7 @@ public class PositionService {
                 existing.mandatoryRequirements(),
                 existing.preferredRequirements(),
                 existing.bonusRequirements(),
+                existing.aiScreeningCriteria(),
                 existing.createdBy(),
                 existing.createdAt(),
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
@@ -203,6 +216,7 @@ public class PositionService {
                             p.mandatoryRequirements(),
                             p.preferredRequirements(),
                             p.bonusRequirements(),
+                            p.aiScreeningCriteria(),
                             p.createdBy(),
                             p.createdAt(),
                             LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
@@ -269,5 +283,14 @@ public class PositionService {
             case "DRAFT", "PUBLISHED", "UNPUBLISHED", "CLOSED" -> resolved;
             default -> throw new IllegalArgumentException("Unsupported position status: " + status);
         };
+    }
+
+    private List<TAPosition> visiblePositions(List<TAPosition> positions) {
+        if (semesterService == null) {
+            return positions;
+        }
+        return positions.stream()
+                .filter(position -> semesterService.matchesViewedSemester(position.semesterId()))
+                .toList();
     }
 }

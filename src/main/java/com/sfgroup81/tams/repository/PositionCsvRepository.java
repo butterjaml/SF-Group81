@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class PositionCsvRepository {
+    private static final String HEADER = "position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,ai_screening_criteria,created_by,created_at,updated_at";
     private final Path positionCsv;
 
     public PositionCsvRepository() {
@@ -43,27 +44,53 @@ public class PositionCsvRepository {
                 if (cols.length < 19) {
                     continue;
                 }
-                positions.add(new TAPosition(
-                        cols[0],
-                        cols[1],
-                        cols[2],
-                        cols[3],
-                        cols[4],
-                        cols[5],
-                        parseInt(cols[6]),
-                        cols[7],
-                        cols[8],
-                        cols[9],
-                        cols[10],
-                        cols[11],
-                        cols[12],
-                        cols[13],
-                        cols[14],
-                        cols[15],
-                        cols[16],
-                        cols[17],
-                        cols[18]
-                ));
+                if (cols.length >= 20) {
+                    positions.add(new TAPosition(
+                            cols[0],
+                            cols[1],
+                            cols[2],
+                            cols[3],
+                            cols[4],
+                            cols[5],
+                            parseInt(cols[6]),
+                            cols[7],
+                            cols[8],
+                            cols[9],
+                            cols[10],
+                            cols[11],
+                            cols[12],
+                            cols[13],
+                            cols[14],
+                            cols[15],
+                            cols[16],
+                            cols[17],
+                            cols[18],
+                            cols[19]
+                    ));
+                } else {
+                    positions.add(new TAPosition(
+                            cols[0],
+                            cols[1],
+                            cols[2],
+                            cols[3],
+                            cols[4],
+                            cols[5],
+                            parseInt(cols[6]),
+                            cols[7],
+                            cols[8],
+                            cols[9],
+                            cols[10],
+                            cols[11],
+                            cols[12],
+                            cols[13],
+                            cols[14],
+                            cols[15],
+                            "",
+                            cols[16],
+                            cols[17],
+                            cols[18]
+                    ));
+                }
             }
             return positions;
         } catch (IOException ex) {
@@ -109,7 +136,7 @@ public class PositionCsvRepository {
 
     private void rewriteAll(List<TAPosition> positions) {
         List<String> lines = new ArrayList<>();
-        lines.add("position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,created_by,created_at,updated_at");
+        lines.add(HEADER);
         for (TAPosition p : positions) {
             lines.add(String.join(",",
                     sanitize(p.positionId()),
@@ -128,6 +155,7 @@ public class PositionCsvRepository {
                     sanitize(p.mandatoryRequirements()),
                     sanitize(p.preferredRequirements()),
                     sanitize(p.bonusRequirements()),
+                    sanitize(p.aiScreeningCriteria()),
                     sanitize(p.createdBy()),
                     sanitize(p.createdAt()),
                     sanitize(p.updatedAt())
