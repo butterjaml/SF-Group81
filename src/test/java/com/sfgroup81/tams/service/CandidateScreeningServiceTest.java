@@ -6,6 +6,7 @@ import com.sfgroup81.tams.model.ApplicationStatus;
 import com.sfgroup81.tams.model.TAApplication;
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
+import com.sfgroup81.tams.repository.AiScreeningResultCsvRepository;
 import com.sfgroup81.tams.repository.InternalReferralCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
@@ -73,9 +74,9 @@ class CandidateScreeningServiceTest {
         applicationRepository.saveOrUpdate(new TAApplication("APP-U0003-" + position.positionId(), "U0003", position.positionId(), 2,
                 ApplicationStatus.PENDING_REVIEW, "", "2026-05-01T09:30:00", "2026-05-01T09:30:00"));
 
-        Path resumeFile = tempDir.resolve("alice_resume.pdf");
-        Files.writeString(resumeFile, "resume");
-        resumeRepository.saveOrUpdate("APP-U0002-" + position.positionId(), resumeFile.toString(), "PDF", "alice_resume.pdf");
+        Path resumeFile = tempDir.resolve("alice_resume.txt");
+        Files.writeString(resumeFile, "Experienced Java tutor with Git and lab teaching background.");
+        resumeRepository.saveOrUpdate("APP-U0002-" + position.positionId(), resumeFile.toString(), "TXT", "alice_resume.txt");
 
         CandidateInsightService candidateInsightService = new CandidateInsightService(
                 applicationRepository,
@@ -88,7 +89,21 @@ class CandidateScreeningServiceTest {
         );
         candidateInsightService.tagInternalReferral("U0002", "Prof. Tan", "Strong recommendation", "U0001");
 
-        CandidateScreeningService screeningService = new CandidateScreeningService(candidateInsightService);
+        AiResumeScreeningService aiResumeScreeningService = new AiResumeScreeningService(
+                new AiScreeningResultCsvRepository(tempDir),
+                resumeRepository,
+                new ResumeTextExtractionService(),
+                (systemPrompt, userPrompt) -> userPrompt.contains("Alice Tan")
+                        ? "{\"match_score\":91,\"matched_skills\":[\"Java\",\"Git\",\"tutoring\"],\"missing_skills\":[\"public speaking\"],\"summary\":\"Excellent overall fit for the TA role.\",\"strengths\":\"Strong Java tutoring background and clear alignment with the lab support needs.\",\"risks\":\"Public speaking evidence is limited in the available resume.\"}"
+                        : "{\"match_score\":54,\"matched_skills\":[\"support\"],\"missing_skills\":[\"Java\",\"Git\"],\"summary\":\"Partial fit but weaker alignment with the technical requirements.\",\"strengths\":\"Shows some student support experience.\",\"risks\":\"Core Java and Git evidence is limited.\"}",
+                AuditLogService.noop()
+        );
+
+        CandidateScreeningService screeningService = new CandidateScreeningService(
+                candidateInsightService,
+                aiResumeScreeningService,
+                AuditLogService.noop()
+        );
         List<CandidateScreeningView> ranked = screeningService.screenCandidates(
                 position,
                 new CandidateFilterCriteria("", "", 3.5, null, "Java", "", "", false, true),
@@ -98,11 +113,12 @@ class CandidateScreeningServiceTest {
 
         assertEquals(1, ranked.size());
         assertEquals("U0002", ranked.get(0).candidate().application().userId());
-        assertTrue(ranked.get(0).recommendationScore() > 0);
+        assertEquals(91.0, ranked.get(0).recommendationScore());
         assertTrue(ranked.get(0).matchedRequirementKeywords().contains("Java"));
+        assertEquals("Excellent overall fit for the TA role.", ranked.get(0).aiSummary());
 
         Path exportPath = screeningService.exportRankedCandidates(position, ranked, tempDir.resolve("exports"), "U0001");
         assertTrue(Files.exists(exportPath));
-        assertTrue(Files.readString(exportPath).contains("Recommendation Score"));
+        assertTrue(Files.readString(exportPath).contains("AI Match Score"));
     }
 }

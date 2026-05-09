@@ -12,12 +12,12 @@ import com.sfgroup81.tams.service.ApplicationReviewService;
 import com.sfgroup81.tams.service.AuditLogService;
 import com.sfgroup81.tams.service.CandidateFilterCriteria;
 import com.sfgroup81.tams.service.CandidateInsightService;
-import com.sfgroup81.tams.service.CandidateRankingWeights;
 import com.sfgroup81.tams.service.CandidateReviewView;
 import com.sfgroup81.tams.service.CandidateScreeningService;
 import com.sfgroup81.tams.service.CandidateScreeningView;
 import com.sfgroup81.tams.service.CandidateSortOption;
 import com.sfgroup81.tams.service.InterviewService;
+import com.sfgroup81.tams.service.SemesterService;
 import com.sfgroup81.tams.ui.PrototypeUi;
 
 import javax.swing.BorderFactory;
@@ -30,12 +30,10 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
-import javax.swing.SpinnerNumberModel;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
@@ -64,6 +62,7 @@ public class MOCandidateManagementPanel extends JPanel {
     private final CandidateInsightService candidateInsightService;
     private final CandidateScreeningService candidateScreeningService;
     private final AuditLogService auditLogService;
+    private final SemesterService semesterService;
 
     private final JComboBox<TAPosition> positionCombo = new JComboBox<>();
     private final JTextField nameFilterField = new JTextField(10);
@@ -76,15 +75,11 @@ public class MOCandidateManagementPanel extends JPanel {
     private final JCheckBox recommendedOnlyCheck = new JCheckBox("Internally recommended");
     private final JCheckBox experiencedOnlyCheck = new JCheckBox("Past TA experience");
     private final JComboBox<CandidateSortOption> sortCombo = new JComboBox<>(CandidateSortOption.values());
-    private final JSpinner gpaWeightSpinner = new JSpinner(new SpinnerNumberModel(30, 0, 100, 5));
-    private final JSpinner experienceWeightSpinner = new JSpinner(new SpinnerNumberModel(25, 0, 100, 5));
-    private final JSpinner skillWeightSpinner = new JSpinner(new SpinnerNumberModel(20, 0, 100, 5));
-    private final JSpinner referralWeightSpinner = new JSpinner(new SpinnerNumberModel(10, 0, 100, 5));
-    private final JSpinner reputationWeightSpinner = new JSpinner(new SpinnerNumberModel(15, 0, 100, 5));
     private final JLabel activeFilterLabel = new JLabel("Filters: None");
+    private final JTextArea aiReferenceArea = new JTextArea(10, 24);
 
     private final DefaultTableModel tableModel = new DefaultTableModel(
-            new Object[]{"Application", "Applicant", "Student ID", "Score", "GPA", "Experience", "Referral", "Status", "Applied At"}, 0
+            new Object[]{"Application", "Applicant", "Student ID", "AI Match", "GPA", "Experience", "Referral", "Status", "Applied At"}, 0
     ) {
         @Override
         public boolean isCellEditable(int row, int column) {
@@ -110,6 +105,7 @@ public class MOCandidateManagementPanel extends JPanel {
                                       CandidateInsightService candidateInsightService,
                                       CandidateScreeningService candidateScreeningService,
                                       AuditLogService auditLogService,
+                                      SemesterService semesterService,
                                       Runnable onBack) {
         this.currentUser = currentUser;
         this.positionRepository = positionRepository;
@@ -119,6 +115,7 @@ public class MOCandidateManagementPanel extends JPanel {
         this.candidateInsightService = candidateInsightService;
         this.candidateScreeningService = candidateScreeningService;
         this.auditLogService = auditLogService;
+        this.semesterService = semesterService;
 
         setLayout(new BorderLayout());
         setBackground(PrototypeUi.PANEL_BACKGROUND);
@@ -137,7 +134,7 @@ public class MOCandidateManagementPanel extends JPanel {
         JPanel top = new JPanel(new BorderLayout(16, 16));
         top.setOpaque(false);
         top.add(buildFilterCard(), BorderLayout.CENTER);
-        top.add(buildWeightCard(), BorderLayout.EAST);
+        top.add(buildAiReferenceCard(), BorderLayout.EAST);
         content.add(top, BorderLayout.NORTH);
 
         JPanel center = new JPanel(new BorderLayout(16, 16));
@@ -199,35 +196,22 @@ public class MOCandidateManagementPanel extends JPanel {
         return card;
     }
 
-    private JPanel buildWeightCard() {
+    private JPanel buildAiReferenceCard() {
         JPanel card = PrototypeUi.createVerticalCard();
-        card.setPreferredSize(new Dimension(260, 0));
-        card.add(PrototypeUi.sectionTitle("Ranking Weights"));
+        card.setPreferredSize(new Dimension(320, 0));
+        card.add(PrototypeUi.sectionTitle("AI Skill Reference"));
         PrototypeUi.addVerticalGap(card, 12);
-        card.add(weightRow("GPA", gpaWeightSpinner));
-        PrototypeUi.addVerticalGap(card, 8);
-        card.add(weightRow("Experience", experienceWeightSpinner));
-        PrototypeUi.addVerticalGap(card, 8);
-        card.add(weightRow("Skill Match", skillWeightSpinner));
-        PrototypeUi.addVerticalGap(card, 8);
-        card.add(weightRow("Referral", referralWeightSpinner));
-        PrototypeUi.addVerticalGap(card, 8);
-        card.add(weightRow("Reputation", reputationWeightSpinner));
-
-        gpaWeightSpinner.addChangeListener(e -> refreshCandidates());
-        experienceWeightSpinner.addChangeListener(e -> refreshCandidates());
-        skillWeightSpinner.addChangeListener(e -> refreshCandidates());
-        referralWeightSpinner.addChangeListener(e -> refreshCandidates());
-        reputationWeightSpinner.addChangeListener(e -> refreshCandidates());
+        card.add(PrototypeUi.mutedLabel("MO-defined weighted skills are sent to the model together with the full job requirements and the extracted resume text."));
+        PrototypeUi.addVerticalGap(card, 10);
+        aiReferenceArea.setEditable(false);
+        aiReferenceArea.setLineWrap(true);
+        aiReferenceArea.setWrapStyleWord(true);
+        card.add(new JScrollPane(aiReferenceArea));
+        PrototypeUi.addVerticalGap(card, 10);
+        JButton rerunButton = PrototypeUi.primaryButton("Refresh AI Screening");
+        rerunButton.addActionListener(e -> refreshCandidates());
+        card.add(rerunButton);
         return card;
-    }
-
-    private JPanel weightRow(String label, JSpinner spinner) {
-        JPanel row = new JPanel(new BorderLayout(8, 8));
-        row.setOpaque(false);
-        row.add(new JLabel(label), BorderLayout.WEST);
-        row.add(spinner, BorderLayout.EAST);
-        return row;
     }
 
     private JPanel buildTableSection() {
@@ -340,10 +324,13 @@ public class MOCandidateManagementPanel extends JPanel {
 
     private void loadPositions() {
         List<TAPosition> positions = new ArrayList<>(positionRepository.findAll().stream()
+                .filter(position -> semesterService == null || semesterService.matchesViewedSemester(position.semesterId()))
                 .filter(position -> position.createdBy().equals(currentUser.userId()))
                 .toList());
         if (positions.isEmpty()) {
-            positions = new ArrayList<>(positionRepository.findAll());
+            positions = new ArrayList<>(positionRepository.findAll().stream()
+                    .filter(position -> semesterService == null || semesterService.matchesViewedSemester(position.semesterId()))
+                    .toList());
         }
         positionCombo.setModel(new DefaultComboBoxModel<>(positions.toArray(new TAPosition[0])));
         positionCombo.setRenderer(new DefaultListCellRenderer() {
@@ -365,18 +352,16 @@ public class MOCandidateManagementPanel extends JPanel {
             currentCandidates = List.of();
             detailArea.setText("No positions available.");
             comparisonGrid.removeAll();
-            comparisonGrid.add(emptyCompareCard("No positions are available for comparison yet."));
-            comparisonGrid.revalidate();
-            comparisonGrid.repaint();
             return;
         }
 
         currentCandidates = candidateScreeningService.screenCandidates(
                 selected,
                 buildCriteria(),
-                buildWeights(),
+                null,
                 (CandidateSortOption) sortCombo.getSelectedItem()
         );
+        aiReferenceArea.setText(formatAiReference(selected));
 
         for (CandidateScreeningView view : currentCandidates) {
             tableModel.addRow(new Object[]{
@@ -420,11 +405,15 @@ public class MOCandidateManagementPanel extends JPanel {
         StringBuilder builder = new StringBuilder();
         builder.append("Applicant: ").append(candidate.user() == null ? candidate.application().userId() : candidate.user().name()).append('\n');
         builder.append("Student ID: ").append(candidate.user() == null ? "-" : candidate.user().staffOrStudentId()).append('\n');
-        builder.append("Recommendation Score: ").append(String.format("%.2f", view.recommendationScore())).append('\n');
+        builder.append("AI Match Score: ").append(String.format("%.2f", view.recommendationScore())).append('\n');
         builder.append("GPA: ").append(String.format("%.2f", view.gpaValue())).append('\n');
         builder.append("Past TA Experience: ").append(view.hasPastTaExperience() ? "YES" : "NO").append('\n');
-        builder.append("Skill Match: ").append(String.format("%.0f%%", view.skillMatchScore() * 100)).append('\n');
-        builder.append("Matched Requirements: ").append(view.matchedRequirementKeywords().isEmpty() ? "-" : String.join("; ", view.matchedRequirementKeywords())).append('\n');
+        builder.append("AI Skill Match: ").append(String.format("%.0f%%", view.skillMatchScore() * 100)).append('\n');
+        builder.append("Matched Skills: ").append(view.matchedRequirementKeywords().isEmpty() ? "-" : String.join("; ", view.matchedRequirementKeywords())).append('\n');
+        builder.append("Missing Skills: ").append(view.missingRequirementKeywords().isEmpty() ? "-" : String.join("; ", view.missingRequirementKeywords())).append('\n');
+        builder.append("AI Summary: ").append(view.aiSummary().isBlank() ? "-" : view.aiSummary()).append('\n');
+        builder.append("Strengths: ").append(view.strengths().isBlank() ? "-" : view.strengths()).append('\n');
+        builder.append("Risks: ").append(view.risks().isBlank() ? "-" : view.risks()).append('\n');
         builder.append("Major / Year: ").append(profile == null ? "-" : profile.major()).append(" / ").append(profile == null ? "-" : profile.yearOfStudy()).append('\n');
         builder.append("Availability: ").append(profile == null ? "-" : profile.availability()).append('\n');
         builder.append("Resume: ").append(resumeLabel(candidate.application().applicationId())).append('\n');
@@ -460,15 +449,16 @@ public class MOCandidateManagementPanel extends JPanel {
         card.add(PrototypeUi.sectionTitle(view.candidate().user() == null ? view.candidate().application().userId() : view.candidate().user().name()));
         PrototypeUi.addVerticalGap(card, 8);
         ApplicantProfile profile = view.candidate().profile();
-        card.add(new JLabel("Score: " + String.format("%.2f", view.recommendationScore())));
+        card.add(new JLabel("AI Match: " + String.format("%.2f", view.recommendationScore())));
         card.add(new JLabel("GPA: " + String.format("%.2f", view.gpaValue())));
         card.add(new JLabel("Experience: " + (view.hasPastTaExperience() ? "YES" : "NO")));
         card.add(new JLabel("Major: " + (profile == null ? "-" : profile.major())));
         card.add(new JLabel("Availability: " + (profile == null ? "-" : profile.availability())));
         JTextArea summary = new JTextArea(
-                "Skills: " + (profile == null ? "-" : profile.skills()) + "\n"
-                        + "Referral: " + referralLabel(view.candidate()) + "\n"
-                        + "Matched requirements: " + (view.matchedRequirementKeywords().isEmpty() ? "-" : String.join("; ", view.matchedRequirementKeywords()))
+                "AI summary: " + (view.aiSummary().isBlank() ? "-" : view.aiSummary()) + "\n"
+                        + "Matched skills: " + (view.matchedRequirementKeywords().isEmpty() ? "-" : String.join("; ", view.matchedRequirementKeywords())) + "\n"
+                        + "Missing skills: " + (view.missingRequirementKeywords().isEmpty() ? "-" : String.join("; ", view.missingRequirementKeywords())) + "\n"
+                        + "Referral: " + referralLabel(view.candidate())
         );
         summary.setEditable(false);
         summary.setLineWrap(true);
@@ -649,16 +639,6 @@ public class MOCandidateManagementPanel extends JPanel {
         );
     }
 
-    private CandidateRankingWeights buildWeights() {
-        return new CandidateRankingWeights(
-                (Integer) gpaWeightSpinner.getValue(),
-                (Integer) experienceWeightSpinner.getValue(),
-                (Integer) skillWeightSpinner.getValue(),
-                (Integer) referralWeightSpinner.getValue(),
-                (Integer) reputationWeightSpinner.getValue()
-        );
-    }
-
     private void updateActiveFilterLabel() {
         List<String> parts = new ArrayList<>();
         if (!nameFilterField.getText().isBlank()) {
@@ -762,5 +742,17 @@ public class MOCandidateManagementPanel extends JPanel {
         for (JTextField field : fields) {
             field.getDocument().addDocumentListener(listener);
         }
+    }
+
+    private String formatAiReference(TAPosition position) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Semester: ").append(position.semesterId()).append('\n');
+        builder.append("Weighted skills: ").append(position.aiScreeningCriteria() == null || position.aiScreeningCriteria().isBlank()
+                ? "Not configured. The system falls back to the listed job requirements."
+                : position.aiScreeningCriteria()).append("\n\n");
+        builder.append("Mandatory: ").append(position.mandatoryRequirements().isBlank() ? "-" : position.mandatoryRequirements()).append("\n\n");
+        builder.append("Preferred: ").append(position.preferredRequirements().isBlank() ? "-" : position.preferredRequirements()).append("\n\n");
+        builder.append("Bonus: ").append(position.bonusRequirements().isBlank() ? "-" : position.bonusRequirements());
+        return builder.toString();
     }
 }
