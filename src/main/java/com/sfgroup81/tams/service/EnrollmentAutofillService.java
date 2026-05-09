@@ -43,6 +43,7 @@ public class EnrollmentAutofillService {
             EnrollmentProfileSnapshot snapshot = priorSnapshot.get();
             ApplicantProfile profile = new ApplicantProfile(
                     snapshot.userId(),
+                    snapshot.semesterId(),
                     snapshot.phone(),
                     snapshot.major(),
                     snapshot.yearOfStudy(),

@@ -81,6 +81,12 @@ public class ApplicationStatusHistoryCsvRepository {
         rewriteAll(all);
     }
 
+    public void deleteByApplicationId(String applicationId) {
+        List<ApplicationStatusHistory> all = new ArrayList<>(findAll());
+        all.removeIf(item -> item.applicationId().equals(applicationId));
+        rewriteAll(all);
+    }
+
     private String nextHistoryId(List<ApplicationStatusHistory> all) {
         return all.stream()
                 .map(ApplicationStatusHistory::historyId)
