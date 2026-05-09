@@ -19,7 +19,7 @@
 ```bash
 mvn -q -DskipTests compile
 mvn test
-mvn -q exec:java -Dexec.mainClass="com.sfgroup81.tams.App"
+mvn -q exec:java "-Dexec.mainClass=com.sfgroup81.tams.App"
 ```
 
 ## Branch Rule
