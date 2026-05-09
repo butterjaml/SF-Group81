@@ -11,8 +11,10 @@ import com.sfgroup81.tams.repository.CasualWorkPostingCsvRepository;
 import com.sfgroup81.tams.repository.EnrollmentProfileSnapshotCsvRepository;
 import com.sfgroup81.tams.repository.InterviewInvitationCsvRepository;
 import com.sfgroup81.tams.repository.InternalReferralCsvRepository;
+import com.sfgroup81.tams.repository.NotificationCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
+import com.sfgroup81.tams.repository.SemesterCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
 import com.sfgroup81.tams.repository.TAFeedbackCsvRepository;
 import com.sfgroup81.tams.repository.UserCsvRepository;
@@ -25,14 +27,17 @@ import com.sfgroup81.tams.service.ApplicationStatusService;
 import com.sfgroup81.tams.service.AuditLogService;
 import com.sfgroup81.tams.service.EnrollmentAutofillService;
 import com.sfgroup81.tams.service.EnrollmentService;
+import com.sfgroup81.tams.service.NotificationService;
 import com.sfgroup81.tams.service.PositionService;
 import com.sfgroup81.tams.service.ResumeUploadService;
+import com.sfgroup81.tams.service.SemesterService;
 import com.sfgroup81.tams.service.SessionContext;
 import com.sfgroup81.tams.service.TAFeedbackService;
 import com.sfgroup81.tams.service.UserManagementService;
 import com.sfgroup81.tams.ui.admin.AdminAuditLogPanel;
 import com.sfgroup81.tams.ui.admin.AdminCasualWorkPanel;
 import com.sfgroup81.tams.ui.admin.AdminDashboardPanel;
+import com.sfgroup81.tams.ui.admin.AdminSemesterManagementPanel;
 import com.sfgroup81.tams.ui.admin.AdminUserManagementPanel;
 import com.sfgroup81.tams.ui.auth.AuthLandingPanel;
 import com.sfgroup81.tams.ui.mo.MODashboardPanel;
@@ -66,8 +71,12 @@ public class LoginFrame extends JFrame {
     private final InternalReferralCsvRepository internalReferralRepository = new InternalReferralCsvRepository();
     private final TAFeedbackCsvRepository feedbackRepository = new TAFeedbackCsvRepository();
     private final AuditLogCsvRepository auditLogRepository = new AuditLogCsvRepository();
+    private final NotificationCsvRepository notificationRepository = new NotificationCsvRepository();
+    private final SemesterCsvRepository semesterRepository = new SemesterCsvRepository();
     private final AuditLogService auditLogService = new AuditLogService(auditLogRepository, userRepository);
-    private final PositionService positionService = new PositionService(positionRepository, auditLogService);
+    private final NotificationService notificationService = new NotificationService(notificationRepository);
+    private final SemesterService semesterService = new SemesterService(semesterRepository, positionRepository, auditLogService);
+    private final PositionService positionService = new PositionService(positionRepository, semesterService, auditLogService);
     private final ResumeUploadService resumeUploadService = new ResumeUploadService(java.nio.file.Path.of("data"), resumeRepository, userRepository);
     private final EnrollmentAutofillService enrollmentAutofillService = new EnrollmentAutofillService(
             profileRepository,
@@ -90,19 +99,23 @@ public class LoginFrame extends JFrame {
             applicationRepository,
             historyRepository,
             positionRepository,
+            semesterService,
             auditLogService
     );
     private final ApplicationReviewService reviewService = new ApplicationReviewService(
             applicationRepository,
             historyRepository,
             positionRepository,
-            auditLogService
+            auditLogService,
+            notificationService
     );
     private final InterviewService interviewService = new InterviewService(
             applicationRepository,
             historyRepository,
             interviewRepository,
-            auditLogService
+            semesterService,
+            auditLogService,
+            notificationService
     );
     private final CasualWorkService casualWorkService = new CasualWorkService(
             casualWorkPostingRepository,
@@ -163,6 +176,10 @@ public class LoginFrame extends JFrame {
                     this::showTACasualWork,
                     casualWorkService.canApplyCasualWork(currentUser.userId()),
                     () -> showTAEnrollment(null),
+                    notificationService.listForUser(currentUser.userId()),
+                    this::markAllNotificationsAsRead,
+                    this::openNotificationTarget,
+                    this::markNotificationAsRead,
                     this::logout
             ));
         } else if (currentUser.role() == UserRole.MO) {
@@ -177,6 +194,7 @@ public class LoginFrame extends JFrame {
             setContentPane(new AdminDashboardPanel(
                     this::showAdminUserManagement,
                     this::showAdminCasualWork,
+                    this::showAdminSemesterArchive,
                     this::showAdminAuditLog,
                     this::logout
             ));
@@ -252,6 +270,7 @@ public class LoginFrame extends JFrame {
                 candidateInsightService,
                 candidateScreeningService,
                 auditLogService,
+                semesterService,
                 this::showRoleHome
         ));
         refreshFrame();
@@ -274,9 +293,49 @@ public class LoginFrame extends JFrame {
         refreshFrame();
     }
 
+    private void showAdminSemesterArchive() {
+        setContentPane(new AdminSemesterManagementPanel(
+                currentUser,
+                semesterService,
+                positionRepository.findAll(),
+                applicationRepository.findAll(),
+                profileRepository.findAll(),
+                this::showRoleHome
+        ));
+        refreshFrame();
+    }
+
     private void showAdminAuditLog() {
         setContentPane(new AdminAuditLogPanel(currentUser, auditLogService, this::showRoleHome));
         refreshFrame();
+    }
+
+    private void openNotificationTarget(com.sfgroup81.tams.model.NotificationEntry notification) {
+        if (notification == null) {
+            return;
+        }
+        notificationService.markAsRead(notification.notificationId(), currentUser.userId());
+        if ("TA_INTERVIEWS".equalsIgnoreCase(notification.relatedPage())) {
+            showTAInterviews();
+            return;
+        }
+        showTAStatus();
+    }
+
+    private void markNotificationAsRead(com.sfgroup81.tams.model.NotificationEntry notification) {
+        if (notification == null) {
+            return;
+        }
+        notificationService.markAsRead(notification.notificationId(), currentUser.userId());
+        showRoleHome();
+    }
+
+    private void markAllNotificationsAsRead() {
+        if (currentUser == null) {
+            return;
+        }
+        notificationService.markAllAsRead(currentUser.userId());
+        showRoleHome();
     }
 
     private void logout() {
