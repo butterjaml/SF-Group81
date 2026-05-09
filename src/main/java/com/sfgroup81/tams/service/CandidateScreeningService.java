@@ -1,7 +1,10 @@
 package com.sfgroup81.tams.service;
 
+import com.sfgroup81.tams.model.AiScreeningResult;
 import com.sfgroup81.tams.model.ApplicantProfile;
 import com.sfgroup81.tams.model.TAPosition;
+import com.sfgroup81.tams.repository.AiScreeningResultCsvRepository;
+import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -18,13 +21,25 @@ import java.util.TreeSet;
 public class CandidateScreeningService {
     private final CandidateInsightService candidateInsightService;
     private final AuditLogService auditLogService;
+    private final AiResumeScreeningService aiResumeScreeningService;
 
     public CandidateScreeningService(CandidateInsightService candidateInsightService) {
-        this(candidateInsightService, AuditLogService.noop());
+        this(candidateInsightService,
+                new AiResumeScreeningService(new AiScreeningResultCsvRepository(), new ResumeFileCsvRepository(), AuditLogService.noop()),
+                AuditLogService.noop());
     }
 
     public CandidateScreeningService(CandidateInsightService candidateInsightService, AuditLogService auditLogService) {
+        this(candidateInsightService,
+                new AiResumeScreeningService(new AiScreeningResultCsvRepository(), new ResumeFileCsvRepository(), auditLogService),
+                auditLogService);
+    }
+
+    public CandidateScreeningService(CandidateInsightService candidateInsightService,
+                                     AiResumeScreeningService aiResumeScreeningService,
+                                     AuditLogService auditLogService) {
         this.candidateInsightService = candidateInsightService;
+        this.aiResumeScreeningService = aiResumeScreeningService;
         this.auditLogService = auditLogService;
     }
 
@@ -64,17 +79,17 @@ public class CandidateScreeningService {
                     + ".csv";
             Path exportFile = outputDir.resolve(filename);
             List<String> lines = new ArrayList<>();
-            lines.add("Name,Student ID,Recommendation Score,GPA,Past TA Experience,Skills,Availability,Applied At");
+            lines.add("Name,Student ID,AI Match Score,GPA,Past TA Experience,Matched Skills,Missing Skills,AI Summary,Applied At");
             for (CandidateScreeningView row : candidates) {
-                ApplicantProfile profile = row.candidate().profile();
                 lines.add(String.join(",",
                         sanitize(row.candidate().user() == null ? row.candidate().application().userId() : row.candidate().user().name()),
                         sanitize(row.candidate().user() == null ? "" : row.candidate().user().staffOrStudentId()),
                         sanitize(String.format(Locale.ROOT, "%.2f", row.recommendationScore())),
-                        sanitize(profile == null ? "" : profile.gpa()),
+                        sanitize(String.format(Locale.ROOT, "%.2f", row.gpaValue())),
                         row.hasPastTaExperience() ? "YES" : "NO",
-                        sanitize(profile == null ? "" : profile.skills()),
-                        sanitize(profile == null ? "" : profile.availability()),
+                        sanitize(String.join("; ", row.matchedRequirementKeywords())),
+                        sanitize(String.join("; ", row.missingRequirementKeywords())),
+                        sanitize(row.aiSummary()),
                         sanitize(row.candidate().application().submittedAt())
                 ));
             }
@@ -91,29 +106,22 @@ public class CandidateScreeningService {
         ApplicantProfile profile = candidate.profile();
         double gpaValue = parseGpa(profile == null ? "" : profile.gpa());
         boolean hasExperience = hasPastTaExperience(profile, candidate.reputationScore());
-        List<String> matchedKeywords = matchedRequirementKeywords(position, profile == null ? "" : profile.skills());
-        double skillScore = requirementKeywords(position).isEmpty()
-                ? 0.5
-                : (double) matchedKeywords.size() / requirementKeywords(position).size();
-        double referralScore = candidate.referral().filter(referral -> referral.hasRecommenders()).isPresent() ? 1.0 : 0.0;
-        double reputationScore = Math.min(candidate.reputationScore() / 5.0, 1.0);
-
-        int totalWeight = Math.max(weights.totalWeight(), 1);
-        double weightedScore = (
-                normalizeGpa(gpaValue) * weights.gpaWeight()
-                        + (hasExperience ? 1.0 : 0.0) * weights.experienceWeight()
-                        + skillScore * weights.skillWeight()
-                        + referralScore * weights.referralWeight()
-                        + reputationScore * weights.reputationWeight()
-        ) / totalWeight;
+        AiScreeningResult aiResult = aiResult(position, candidate, profile, hasExperience, gpaValue);
+        List<String> matchedKeywords = aiResult.matchedSkillList();
+        List<String> missingKeywords = aiResult.missingSkillList();
+        double skillScore = Math.max(0.0, Math.min(aiResult.matchScore() / 100.0, 1.0));
 
         return new CandidateScreeningView(
                 candidate,
-                Math.round(weightedScore * 10000.0) / 100.0,
+                Math.round(aiResult.matchScore() * 100.0) / 100.0,
                 gpaValue,
                 hasExperience,
                 Math.round(skillScore * 100.0) / 100.0,
-                matchedKeywords
+                matchedKeywords,
+                missingKeywords,
+                aiResult.summary(),
+                aiResult.strengths(),
+                aiResult.risks()
         );
     }
 
@@ -210,10 +218,6 @@ public class CandidateScreeningService {
         }
     }
 
-    private double normalizeGpa(double gpaValue) {
-        return Math.max(0.0, Math.min(gpaValue / 4.0, 1.0));
-    }
-
     private boolean containsIgnoreCase(String source, String keyword) {
         String normalized = safe(keyword).toLowerCase(Locale.ROOT);
         return normalized.isBlank() || safe(source).toLowerCase(Locale.ROOT).contains(normalized);
@@ -230,5 +234,48 @@ public class CandidateScreeningService {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private AiScreeningResult aiResult(TAPosition position,
+                                       CandidateReviewView candidate,
+                                       ApplicantProfile profile,
+                                       boolean hasExperience,
+                                       double gpaValue) {
+        try {
+            return aiResumeScreeningService.analyze(position, candidate);
+        } catch (Exception ex) {
+            List<String> matchedKeywords = matchedRequirementKeywords(position, profile == null ? "" : profile.skills());
+            List<String> missingKeywords = requirementKeywords(position).stream()
+                    .filter(keyword -> !matchedKeywords.contains(keyword))
+                    .toList();
+            double fallbackScore = fallbackScore(gpaValue, hasExperience, matchedKeywords, position);
+            return new AiScreeningResult(
+                    "FALLBACK",
+                    position.positionId(),
+                    candidate.application().applicationId(),
+                    safe(candidate.application().semesterId()),
+                    "local-fallback",
+                    fallbackScore,
+                    String.join("; ", matchedKeywords),
+                    String.join("; ", missingKeywords),
+                    "AI screening was temporarily unavailable, so the system used a local fallback score.",
+                    matchedKeywords.isEmpty() ? "Structured profile has limited direct overlap with the job requirements." : "Structured profile shows overlap with several required skills.",
+                    missingKeywords.isEmpty() ? "No obvious skill gaps were detected from the profile text." : "Some weighted or listed requirements were not clearly supported by the available profile text.",
+                    "",
+                    ""
+            );
+        }
+    }
+
+    private double fallbackScore(double gpaValue,
+                                 boolean hasExperience,
+                                 List<String> matchedKeywords,
+                                 TAPosition position) {
+        double keywordScore = requirementKeywords(position).isEmpty()
+                ? 60.0
+                : (double) matchedKeywords.size() / requirementKeywords(position).size() * 100.0;
+        double gpaScore = Math.max(0.0, Math.min(gpaValue / 4.0, 1.0)) * 20.0;
+        double experienceScore = hasExperience ? 15.0 : 0.0;
+        return Math.max(0.0, Math.min(keywordScore * 0.65 + gpaScore + experienceScore, 100.0));
     }
 }
