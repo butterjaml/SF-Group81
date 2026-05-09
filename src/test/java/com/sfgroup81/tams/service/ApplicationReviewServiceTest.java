@@ -4,8 +4,10 @@ import com.sfgroup81.tams.bootstrap.DataBootstrap;
 import com.sfgroup81.tams.model.ApplicationStatus;
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
+import com.sfgroup81.tams.repository.NotificationCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
+import com.sfgroup81.tams.repository.EnrollmentProfileSnapshotCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
@@ -33,6 +35,7 @@ class ApplicationReviewServiceTest {
         ResumeFileCsvRepository resumeRepository = new ResumeFileCsvRepository(tempDir);
         TAApplicationCsvRepository applicationRepository = new TAApplicationCsvRepository(tempDir);
         ApplicationStatusHistoryCsvRepository historyRepository = new ApplicationStatusHistoryCsvRepository(tempDir);
+        NotificationCsvRepository notificationRepository = new NotificationCsvRepository(tempDir);
 
         userRepository.saveNewUser("Carol Sun", "20250003", "carol@example.com", SecurityUtil.sha256("password123"), UserRole.TA);
         userRepository.saveNewUser("MO Zhang", "90001", "mo@example.com", SecurityUtil.sha256("password123"), UserRole.MO);
@@ -65,7 +68,9 @@ class ApplicationReviewServiceTest {
                 new ResumeUploadService(tempDir, resumeRepository, userRepository),
                 applicationRepository,
                 historyRepository,
-                new ApplicationPreferenceCsvRepository(tempDir)
+                new ApplicationPreferenceCsvRepository(tempDir),
+                new EnrollmentProfileSnapshotCsvRepository(tempDir),
+                AuditLogService.noop()
         );
         Path resumeFile = tempDir.resolve("carol_cv.pdf");
         Files.writeString(resumeFile, "resume");
@@ -85,7 +90,9 @@ class ApplicationReviewServiceTest {
         ApplicationReviewService reviewService = new ApplicationReviewService(
                 applicationRepository,
                 historyRepository,
-                positionRepository
+                positionRepository,
+                AuditLogService.noop(),
+                new NotificationService(notificationRepository)
         );
         ApplicationStatusService statusService = new ApplicationStatusService(
                 applicationRepository,
@@ -96,10 +103,12 @@ class ApplicationReviewServiceTest {
         reviewService.updateStatus("APP-U0001-P0001", ApplicationStatus.INTERVIEW, "Interview on Tuesday", "U0002");
         reviewService.updateStatus("APP-U0001-P0001", ApplicationStatus.REJECTED, "Role filled by another candidate", "U0002");
 
-        ApplicantApplicationView view = statusService.listForApplicant("U0001").getFirst();
+        ApplicantApplicationView view = statusService.listForApplicant("U0001").get(0);
         assertEquals(ApplicationStatus.REJECTED, view.application().status());
         assertEquals("Role filled by another candidate", view.application().feedback());
         assertEquals(3, view.history().size());
         assertEquals("Interview on Tuesday", view.history().get(1).note());
+        assertEquals(2, notificationRepository.findByUserId("U0001").size());
+        assertEquals("Application status updated", notificationRepository.findByUserId("U0001").get(0).title());
     }
 }

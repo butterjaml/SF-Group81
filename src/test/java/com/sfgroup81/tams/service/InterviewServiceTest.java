@@ -8,6 +8,7 @@ import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
+import com.sfgroup81.tams.repository.EnrollmentProfileSnapshotCsvRepository;
 import com.sfgroup81.tams.repository.InterviewInvitationCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
@@ -72,7 +73,9 @@ class InterviewServiceTest {
                 new ResumeUploadService(tempDir, resumeRepository, userRepository),
                 applicationRepository,
                 historyRepository,
-                new ApplicationPreferenceCsvRepository(tempDir)
+                new ApplicationPreferenceCsvRepository(tempDir),
+                new EnrollmentProfileSnapshotCsvRepository(tempDir),
+                AuditLogService.noop()
         );
         Path resumeFile = tempDir.resolve("alice_cv.pdf");
         Files.writeString(resumeFile, "resume");

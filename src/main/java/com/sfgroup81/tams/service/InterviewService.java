@@ -19,21 +19,42 @@ public class InterviewService {
     private final ApplicationStatusHistoryCsvRepository historyRepository;
     private final InterviewInvitationCsvRepository invitationRepository;
     private final AuditLogService auditLogService;
+    private final SemesterService semesterService;
+    private final NotificationService notificationService;
 
     public InterviewService(TAApplicationCsvRepository applicationRepository,
                             ApplicationStatusHistoryCsvRepository historyRepository,
                             InterviewInvitationCsvRepository invitationRepository) {
-        this(applicationRepository, historyRepository, invitationRepository, AuditLogService.noop());
+        this(applicationRepository, historyRepository, invitationRepository, null, AuditLogService.noop(), NotificationService.noop());
     }
 
     public InterviewService(TAApplicationCsvRepository applicationRepository,
                             ApplicationStatusHistoryCsvRepository historyRepository,
                             InterviewInvitationCsvRepository invitationRepository,
                             AuditLogService auditLogService) {
+        this(applicationRepository, historyRepository, invitationRepository, null, auditLogService, NotificationService.noop());
+    }
+
+    public InterviewService(TAApplicationCsvRepository applicationRepository,
+                            ApplicationStatusHistoryCsvRepository historyRepository,
+                            InterviewInvitationCsvRepository invitationRepository,
+                            SemesterService semesterService,
+                            AuditLogService auditLogService) {
+        this(applicationRepository, historyRepository, invitationRepository, semesterService, auditLogService, NotificationService.noop());
+    }
+
+    public InterviewService(TAApplicationCsvRepository applicationRepository,
+                            ApplicationStatusHistoryCsvRepository historyRepository,
+                            InterviewInvitationCsvRepository invitationRepository,
+                            SemesterService semesterService,
+                            AuditLogService auditLogService,
+                            NotificationService notificationService) {
         this.applicationRepository = applicationRepository;
         this.historyRepository = historyRepository;
         this.invitationRepository = invitationRepository;
+        this.semesterService = semesterService;
         this.auditLogService = auditLogService;
+        this.notificationService = notificationService;
     }
 
     public InterviewInvitation scheduleInterview(String applicationId,
@@ -58,6 +79,7 @@ public class InterviewService {
                 application.applicationId(),
                 application.userId(),
                 application.positionId(),
+                application.semesterId(),
                 application.priorityNo(),
                 ApplicationStatus.INTERVIEW,
                 application.feedback(),
@@ -84,6 +106,14 @@ public class InterviewService {
         InterviewInvitation saved = invitationRepository.saveOrUpdate(invitation);
         auditLogService.record("INTERVIEW_SCHEDULED", changedBy,
                 "Scheduled interview for " + applicationId + " at " + scheduledAt + " / " + location);
+        notificationService.notifyUser(
+                application.userId(),
+                "Interview invitation scheduled",
+                "Interview arranged for " + safe(scheduledAt) + " at " + safe(location)
+                        + (safe(onlineLink).isBlank() ? "" : " | Link: " + safe(onlineLink)),
+                "TA_INTERVIEWS",
+                application.applicationId()
+        );
         return saved;
     }
 
@@ -115,6 +145,7 @@ public class InterviewService {
 
     public List<InterviewInvitation> listForApplicant(String userId) {
         List<InterviewInvitation> invitations = applicationRepository.findByUserId(userId).stream()
+                .filter(this::isVisibleInSemesterView)
                 .flatMap(application -> invitationRepository.findByApplicationId(application.applicationId()).stream())
                 .sorted(Comparator.comparing(InterviewInvitation::scheduledAt))
                 .toList();
@@ -124,6 +155,7 @@ public class InterviewService {
 
     public List<InterviewInvitation> listForApplicantWithoutAudit(String userId) {
         return applicationRepository.findByUserId(userId).stream()
+                .filter(this::isVisibleInSemesterView)
                 .flatMap(application -> invitationRepository.findByApplicationId(application.applicationId()).stream())
                 .sorted(Comparator.comparing(InterviewInvitation::scheduledAt))
                 .toList();
@@ -175,6 +207,13 @@ public class InterviewService {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private boolean isVisibleInSemesterView(TAApplication application) {
+        if (semesterService == null) {
+            return true;
+        }
+        return semesterService.matchesViewedSemester(application.semesterId());
     }
 
     private String now() {
