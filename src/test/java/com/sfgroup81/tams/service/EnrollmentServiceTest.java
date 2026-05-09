@@ -7,6 +7,7 @@ import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.ApplicantProfileCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
+import com.sfgroup81.tams.repository.EnrollmentProfileSnapshotCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.ResumeFileCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
@@ -86,7 +87,9 @@ class EnrollmentServiceTest {
                 resumeUploadService,
                 applicationRepository,
                 historyRepository,
-                new ApplicationPreferenceCsvRepository(tempDir)
+                new ApplicationPreferenceCsvRepository(tempDir),
+                new EnrollmentProfileSnapshotCsvRepository(tempDir),
+                AuditLogService.noop()
         );
 
         Path resumeFile = tempDir.resolve("alice_cv.pdf");
@@ -108,13 +111,15 @@ class EnrollmentServiceTest {
         assertEquals("Computer Science", profileRepository.findByUserId("U0001").orElseThrow().major());
         assertEquals("resume_20250001_Alice_Tan.pdf", resumeRepository.findByApplicationId("APP-U0001-P0001").orElseThrow().autoFilename());
         assertEquals(2, applicationRepository.findByUserId("U0001").size());
+        assertEquals("2026S1", applicationRepository.findById("APP-U0001-P0001").orElseThrow().semesterId());
+        assertEquals("2026S1", profileRepository.findByUserId("U0001").orElseThrow().semesterId());
         assertEquals(ApplicationStatus.PENDING_REVIEW, applicationRepository.findById("APP-U0001-P0001").orElseThrow().status());
         assertEquals(1, historyRepository.findByApplicationId("APP-U0001-P0001").size());
         assertEquals(List.of("COMP301", "COMP302"),
-                new ApplicationPreferenceCsvRepository(tempDir).findByApplicationId("APP-U0001").stream()
+                new ApplicationPreferenceCsvRepository(tempDir).findByApplicationId("APP-U0001-2026S1").stream()
                         .map(item -> item.courseId())
                         .toList());
-        assertTrue(Files.readString(tempDir.resolve("application_preferences.csv")).contains("APP-U0001,COMP301,1"));
+        assertTrue(Files.readString(tempDir.resolve("application_preferences.csv")).contains("APP-U0001-2026S1,COMP301,1"));
     }
 
     @Test
@@ -154,7 +159,9 @@ class EnrollmentServiceTest {
                 new ResumeUploadService(tempDir, new ResumeFileCsvRepository(tempDir), userRepository),
                 new TAApplicationCsvRepository(tempDir),
                 new ApplicationStatusHistoryCsvRepository(tempDir),
-                new ApplicationPreferenceCsvRepository(tempDir)
+                new ApplicationPreferenceCsvRepository(tempDir),
+                new EnrollmentProfileSnapshotCsvRepository(tempDir),
+                AuditLogService.noop()
         );
 
         Path resumeFile = tempDir.resolve("bob_cv.pdf");
@@ -208,7 +215,9 @@ class EnrollmentServiceTest {
                 new ResumeUploadService(tempDir, new ResumeFileCsvRepository(tempDir), userRepository),
                 new TAApplicationCsvRepository(tempDir),
                 new ApplicationStatusHistoryCsvRepository(tempDir),
-                new ApplicationPreferenceCsvRepository(tempDir)
+                new ApplicationPreferenceCsvRepository(tempDir),
+                new EnrollmentProfileSnapshotCsvRepository(tempDir),
+                AuditLogService.noop()
         );
 
         Path resumeFile = tempDir.resolve("dana_cv.pdf");

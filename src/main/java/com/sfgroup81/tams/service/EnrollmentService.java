@@ -95,9 +95,18 @@ public class EnrollmentService {
     public void submit(EnrollmentSubmission submission) {
         validateSubmission(submission);
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        Set<String> normalizedPositionIds = new LinkedHashSet<>();
+        for (String positionId : submission.positionIds()) {
+            if (positionId != null && !positionId.isBlank()) {
+                normalizedPositionIds.add(positionId.trim());
+            }
+        }
+        Map<String, TAPosition> positionsById = positionsById(normalizedPositionIds);
+        String semesterId = resolveSemesterId(positionsById, normalizedPositionIds);
 
         ApplicantProfile profile = profileRepository.saveOrUpdate(new ApplicantProfile(
                 submission.userId().trim(),
+                semesterId,
                 safe(submission.phone()),
                 safe(submission.major()),
                 safe(submission.yearOfStudy()),
@@ -108,18 +117,15 @@ public class EnrollmentService {
                 now
         ));
 
-        Set<String> normalizedPositionIds = new LinkedHashSet<>();
-        for (String positionId : submission.positionIds()) {
-            if (positionId != null && !positionId.isBlank()) {
-                normalizedPositionIds.add(positionId.trim());
-            }
+        List<String> existingApplicationIds = applicationRepository.findByUserIdAndSemesterId(submission.userId().trim(), semesterId).stream()
+                .map(TAApplication::applicationId)
+                .toList();
+        applicationRepository.deleteByUserIdAndSemesterId(submission.userId().trim(), semesterId);
+        for (String applicationId : existingApplicationIds) {
+            historyRepository.deleteByApplicationId(applicationId);
         }
-        Map<String, TAPosition> positionsById = positionsById(normalizedPositionIds);
-
-        applicationRepository.deleteByUserId(submission.userId().trim());
-        historyRepository.deleteByApplicationPrefix("APP-" + submission.userId().trim());
         preferenceRepository.saveForApplication(
-                "APP-" + submission.userId().trim(),
+                preferenceBundleId(submission.userId().trim(), semesterId),
                 normalizedPositionIds.stream()
                         .map(positionId -> positionsById.get(positionId))
                         .filter(java.util.Objects::nonNull)
@@ -136,6 +142,7 @@ public class EnrollmentService {
                     applicationId,
                     submission.userId().trim(),
                     positionId,
+                    semesterId,
                     priority++,
                     ApplicationStatus.PENDING_REVIEW,
                     "",
@@ -150,7 +157,7 @@ public class EnrollmentService {
         snapshotRepository.save(new EnrollmentProfileSnapshot(
                 snapshotRepository.nextSnapshotId(),
                 submission.userId().trim(),
-                resolveSemesterId(positionsById, normalizedPositionIds),
+                semesterId,
                 profile.phone(),
                 profile.major(),
                 profile.yearOfStudy(),
@@ -165,6 +172,10 @@ public class EnrollmentService {
         ));
         auditLogService.record("ENROLLMENT_SUBMITTED", submission.userId(),
                 "Submitted TA application package for positions " + String.join("; ", normalizedPositionIds));
+    }
+
+    private String preferenceBundleId(String userId, String semesterId) {
+        return "APP-" + userId + "-" + safe(semesterId).toUpperCase();
     }
 
     private void validateSubmission(EnrollmentSubmission submission) {
