@@ -11,6 +11,7 @@ import java.awt.GridLayout;
 public class AdminDashboardPanel extends JPanel {
     public AdminDashboardPanel(Runnable onUserManagement,
                                Runnable onCasualWork,
+                               Runnable onSemesterArchive,
                                Runnable onAuditLog,
                                Runnable onLogout) {
         setLayout(new BorderLayout());
@@ -22,9 +23,10 @@ public class AdminDashboardPanel extends JPanel {
         content.setBorder(BorderFactory.createEmptyBorder(48, 120, 48, 120));
 
         JPanel menu = PrototypeUi.createVerticalCard();
-        menu.setLayout(new GridLayout(3, 1, 0, 12));
+        menu.setLayout(new GridLayout(4, 1, 0, 12));
         menu.add(createMenuButton("User Management", onUserManagement));
         menu.add(createMenuButton("Casual Work Posting", onCasualWork));
+        menu.add(createMenuButton("Semester Archive", onSemesterArchive));
         menu.add(createMenuButton("Audit Log", onAuditLog));
         content.add(menu, BorderLayout.CENTER);
 

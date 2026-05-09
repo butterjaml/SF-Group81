@@ -39,7 +39,8 @@ public class AdminAuditLogPanel extends JPanel {
             "INTERVIEW_RESPONSE_UPDATED", "CASUAL_WORK_POSTED", "CASUAL_WORK_APPLIED", "POSITION_CREATED",
             "POSITION_UPDATED", "POSITION_UNPUBLISHED", "CANDIDATE_EXPORT", "RESUME_EXPORT",
             "RANKED_CANDIDATE_EXPORT", "USER_MANAGEMENT_VIEWED", "AUDIT_LOG_VIEWED", "TA_FEEDBACK_SUBMITTED",
-            "DATA_ACCESS", "REFERRAL_TAGGED"
+            "DATA_ACCESS", "REFERRAL_TAGGED", "SEMESTER_CREATED", "SEMESTER_VIEW_SWITCHED",
+            "AI_SCREENING_RUN"
     });
     private final DefaultTableModel tableModel = new DefaultTableModel(
             new Object[]{"Time", "Event", "User", "IP Address", "Details"}, 0
