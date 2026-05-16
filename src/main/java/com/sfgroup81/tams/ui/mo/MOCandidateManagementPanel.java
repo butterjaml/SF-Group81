@@ -325,13 +325,8 @@ public class MOCandidateManagementPanel extends JPanel {
     private void loadPositions() {
         List<TAPosition> positions = new ArrayList<>(positionRepository.findAll().stream()
                 .filter(position -> semesterService == null || semesterService.matchesViewedSemester(position.semesterId()))
-                .filter(position -> position.createdBy().equals(currentUser.userId()))
+                .filter(position -> currentUser != null && position.createdBy().equals(currentUser.userId()))
                 .toList());
-        if (positions.isEmpty()) {
-            positions = new ArrayList<>(positionRepository.findAll().stream()
-                    .filter(position -> semesterService == null || semesterService.matchesViewedSemester(position.semesterId()))
-                    .toList());
-        }
         positionCombo.setModel(new DefaultComboBoxModel<>(positions.toArray(new TAPosition[0])));
         positionCombo.setRenderer(new DefaultListCellRenderer() {
             @Override

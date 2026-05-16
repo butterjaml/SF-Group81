@@ -8,9 +8,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PositionServiceTest {
     @TempDir
@@ -47,6 +49,113 @@ class PositionServiceTest {
         assertEquals("Dr. Li", saved.instructorName());
         assertEquals("Base 80 yuan/hour; marking 15 yuan/report", saved.salaryInfo());
         assertEquals(1, repository.findAll().size());
+    }
+
+    @Test
+    void savePositionShouldPreserveMultilineRequirements() {
+        DataBootstrap.initialize(tempDir);
+        PositionCsvRepository repository = new PositionCsvRepository(tempDir);
+        PositionService service = new PositionService(repository);
+
+        String mandatoryRequirements = "First requirement\nSecond requirement with comma, and \"quote\"";
+        TAPosition saved = service.savePosition(new PositionUpsertRequest(
+                "",
+                "COMP301",
+                "Human Computer Interaction",
+                "Dr. Ng",
+                "2026S1",
+                "Modular TA",
+                1,
+                LocalDate.now().plusDays(7).toString(),
+                "PUBLISHED",
+                "COMP301 Studio TA",
+                "Run studio sessions",
+                "5 hours/week",
+                "Base 90 yuan/hour",
+                mandatoryRequirements,
+                "Figma experience",
+                "Portfolio review",
+                "U0002"
+        ), "U0002");
+
+        TAPosition reloaded = repository.findById(saved.positionId()).orElseThrow();
+        assertEquals(mandatoryRequirements, reloaded.mandatoryRequirements());
+        assertTrue(service.listOpenPublishedPositions().stream()
+                .anyMatch(position -> saved.positionId().equals(position.positionId())));
+    }
+
+    @Test
+    void moShouldOnlyListAndModifyOwnPositions() {
+        DataBootstrap.initialize(tempDir);
+        PositionCsvRepository repository = new PositionCsvRepository(tempDir);
+        PositionService service = new PositionService(repository);
+
+        service.savePosition(new PositionUpsertRequest(
+                "",
+                "COMP401",
+                "Project Studio",
+                "Grace Liu",
+                "2026S1",
+                "Lead TA",
+                1,
+                LocalDate.now().plusDays(7).toString(),
+                "PUBLISHED",
+                "COMP401 Lead TA",
+                "Coach project teams",
+                "6 hours/week",
+                "Base 110 yuan/hour",
+                "Project mentoring",
+                "",
+                "",
+                "U0002"
+        ), "U0002");
+        service.savePosition(new PositionUpsertRequest(
+                "",
+                "COMP402",
+                "Legacy Systems",
+                "Daniel Wu",
+                "2026S1",
+                "Modular TA",
+                1,
+                LocalDate.now().plusDays(7).toString(),
+                "PUBLISHED",
+                "COMP402 Support TA",
+                "Support grading",
+                "4 hours/week",
+                "Base 85 yuan/hour",
+                "Completed COMP402",
+                "",
+                "",
+                "U0003"
+        ), "U0003");
+
+        assertEquals(List.of("P0001"), service.listByCreator("U0002").stream()
+                .map(TAPosition::positionId)
+                .toList());
+        IllegalArgumentException editError = assertThrows(IllegalArgumentException.class, () -> service.savePosition(new PositionUpsertRequest(
+                "P0002",
+                "COMP402",
+                "Edited By Wrong MO",
+                "Daniel Wu",
+                "2026S1",
+                "Modular TA",
+                1,
+                LocalDate.now().plusDays(7).toString(),
+                "PUBLISHED",
+                "Edited",
+                "Support grading",
+                "4 hours/week",
+                "Base 85 yuan/hour",
+                "Completed COMP402",
+                "",
+                "",
+                "U0002"
+        ), "U0002"));
+        assertEquals("Only the MO who created this position can modify it", editError.getMessage());
+
+        IllegalArgumentException unpublishError = assertThrows(IllegalArgumentException.class,
+                () -> service.unpublish("P0002", "U0002"));
+        assertEquals("Only the MO who created this position can modify it", unpublishError.getMessage());
     }
 
     @Test

@@ -29,66 +29,65 @@ public class PositionCsvRepository {
             if (Files.notExists(positionCsv)) {
                 return List.of();
             }
-            List<String> lines = Files.readAllLines(positionCsv, StandardCharsets.UTF_8);
-            if (lines.size() <= 1) {
+            List<List<String>> rows = parseCsv(Files.readString(positionCsv, StandardCharsets.UTF_8));
+            if (rows.size() <= 1) {
                 return List.of();
             }
 
             List<TAPosition> positions = new ArrayList<>();
-            for (int i = 1; i < lines.size(); i++) {
-                String line = lines.get(i).trim();
-                if (line.isEmpty()) {
+            for (int i = 1; i < rows.size(); i++) {
+                List<String> cols = rows.get(i);
+                if (cols.isEmpty()) {
                     continue;
                 }
-                String[] cols = line.split(",", -1);
-                if (cols.length < 19) {
+                if (cols.size() < 19) {
                     continue;
                 }
-                if (cols.length >= 20) {
+                if (cols.size() >= 20) {
                     positions.add(new TAPosition(
-                            cols[0],
-                            cols[1],
-                            cols[2],
-                            cols[3],
-                            cols[4],
-                            cols[5],
-                            parseInt(cols[6]),
-                            cols[7],
-                            cols[8],
-                            cols[9],
-                            cols[10],
-                            cols[11],
-                            cols[12],
-                            cols[13],
-                            cols[14],
-                            cols[15],
-                            cols[16],
-                            cols[17],
-                            cols[18],
-                            cols[19]
+                            cols.get(0),
+                            cols.get(1),
+                            cols.get(2),
+                            cols.get(3),
+                            cols.get(4),
+                            cols.get(5),
+                            parseInt(cols.get(6)),
+                            cols.get(7),
+                            cols.get(8),
+                            cols.get(9),
+                            cols.get(10),
+                            cols.get(11),
+                            cols.get(12),
+                            cols.get(13),
+                            cols.get(14),
+                            cols.get(15),
+                            cols.get(16),
+                            cols.get(17),
+                            cols.get(18),
+                            cols.get(19)
                     ));
                 } else {
                     positions.add(new TAPosition(
-                            cols[0],
-                            cols[1],
-                            cols[2],
-                            cols[3],
-                            cols[4],
-                            cols[5],
-                            parseInt(cols[6]),
-                            cols[7],
-                            cols[8],
-                            cols[9],
-                            cols[10],
-                            cols[11],
-                            cols[12],
-                            cols[13],
-                            cols[14],
-                            cols[15],
+                            cols.get(0),
+                            cols.get(1),
+                            cols.get(2),
+                            cols.get(3),
+                            cols.get(4),
+                            cols.get(5),
+                            parseInt(cols.get(6)),
+                            cols.get(7),
+                            cols.get(8),
+                            cols.get(9),
+                            cols.get(10),
+                            cols.get(11),
+                            cols.get(12),
+                            cols.get(13),
+                            cols.get(14),
+                            cols.get(15),
                             "",
-                            cols[16],
-                            cols[17],
-                            cols[18]
+                            cols.get(16),
+                            cols.get(17),
+                            cols.get(18)
                     ));
                 }
             }
@@ -139,26 +138,26 @@ public class PositionCsvRepository {
         lines.add(HEADER);
         for (TAPosition p : positions) {
             lines.add(String.join(",",
-                    sanitize(p.positionId()),
-                    sanitize(p.courseId()),
-                    sanitize(p.courseName()),
-                    sanitize(p.instructorName()),
-                    sanitize(p.semesterId()),
-                    sanitize(p.positionType()),
+                    encode(p.positionId()),
+                    encode(p.courseId()),
+                    encode(p.courseName()),
+                    encode(p.instructorName()),
+                    encode(p.semesterId()),
+                    encode(p.positionType()),
                     Integer.toString(p.headcount()),
-                    sanitize(p.deadline()),
-                    sanitize(p.status()),
-                    sanitize(p.title()),
-                    sanitize(p.responsibilities()),
-                    sanitize(p.workingHours()),
-                    sanitize(p.salaryInfo()),
-                    sanitize(p.mandatoryRequirements()),
-                    sanitize(p.preferredRequirements()),
-                    sanitize(p.bonusRequirements()),
-                    sanitize(p.aiScreeningCriteria()),
-                    sanitize(p.createdBy()),
-                    sanitize(p.createdAt()),
-                    sanitize(p.updatedAt())
+                    encode(p.deadline()),
+                    encode(p.status()),
+                    encode(p.title()),
+                    encode(p.responsibilities()),
+                    encode(p.workingHours()),
+                    encode(p.salaryInfo()),
+                    encode(p.mandatoryRequirements()),
+                    encode(p.preferredRequirements()),
+                    encode(p.bonusRequirements()),
+                    encode(p.aiScreeningCriteria()),
+                    encode(p.createdBy()),
+                    encode(p.createdAt()),
+                    encode(p.updatedAt())
             ));
         }
 
@@ -177,7 +176,63 @@ public class PositionCsvRepository {
         }
     }
 
-    private String sanitize(String value) {
-        return value == null ? "" : value.replace(",", " ").trim();
+    private List<List<String>> parseCsv(String text) {
+        List<List<String>> rows = new ArrayList<>();
+        List<String> row = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inQuotes) {
+                if (c == '"') {
+                    if (i + 1 < text.length() && text.charAt(i + 1) == '"') {
+                        field.append('"');
+                        i++;
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    field.append(c);
+                }
+                continue;
+            }
+
+            if (c == '"') {
+                inQuotes = true;
+            } else if (c == ',') {
+                row.add(field.toString());
+                field.setLength(0);
+            } else if (c == '\n' || c == '\r') {
+                row.add(field.toString());
+                field.setLength(0);
+                if (!isBlankRow(row)) {
+                    rows.add(row);
+                }
+                row = new ArrayList<>();
+                if (c == '\r' && i + 1 < text.length() && text.charAt(i + 1) == '\n') {
+                    i++;
+                }
+            } else {
+                field.append(c);
+            }
+        }
+
+        if (field.length() > 0 || !row.isEmpty()) {
+            row.add(field.toString());
+            if (!isBlankRow(row)) {
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    private boolean isBlankRow(List<String> row) {
+        return row.stream().allMatch(value -> value == null || value.isBlank());
+    }
+
+    private String encode(String value) {
+        String safe = value == null ? "" : value.trim();
+        return "\"" + safe.replace("\"", "\"\"") + "\"";
     }
 }
