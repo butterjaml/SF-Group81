@@ -11,11 +11,13 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -55,12 +57,18 @@ public class PositionManagePanel extends JPanel {
         this.positionService = positionService;
         setLayout(new BorderLayout());
         setBackground(PrototypeUi.PANEL_BACKGROUND);
+        configureTextAreas();
         add(PrototypeUi.createHeader("Job requirements", onBack), BorderLayout.NORTH);
 
         JPanel content = new JPanel(new BorderLayout(16, 16));
         content.setOpaque(false);
         content.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 24, 20, 24));
-        content.add(buildFormPanel(), BorderLayout.WEST);
+        JScrollPane formScrollPane = new JScrollPane(buildFormPanel());
+        formScrollPane.setBorder(null);
+        formScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        formScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        formScrollPane.setPreferredSize(new Dimension(430, 1));
+        content.add(formScrollPane, BorderLayout.WEST);
         content.add(new JScrollPane(table), BorderLayout.CENTER);
         content.add(new JScrollPane(previewArea), BorderLayout.EAST);
         add(content, BorderLayout.CENTER);
@@ -72,6 +80,22 @@ public class PositionManagePanel extends JPanel {
         });
         previewArea.setEditable(false);
         refreshTable();
+    }
+
+    private void configureTextAreas() {
+        for (JTextArea area : List.of(
+                responsibilitiesArea,
+                hoursArea,
+                salaryArea,
+                mandatoryArea,
+                preferredArea,
+                bonusArea,
+                aiCriteriaArea,
+                previewArea
+        )) {
+            area.setLineWrap(true);
+            area.setWrapStyleWord(true);
+        }
     }
 
     private JPanel buildFormPanel() {
@@ -92,13 +116,13 @@ public class PositionManagePanel extends JPanel {
         addField(formPanel, gbc, row++, "Headcount", headcountField);
         addField(formPanel, gbc, row++, "Deadline", deadlineField);
         addField(formPanel, gbc, row++, "Title", titleField);
-        addField(formPanel, gbc, row++, "Responsibilities", new JScrollPane(responsibilitiesArea));
-        addField(formPanel, gbc, row++, "Working Hours", new JScrollPane(hoursArea));
-        addField(formPanel, gbc, row++, "Salary", new JScrollPane(salaryArea));
-        addField(formPanel, gbc, row++, "Mandatory requirements", new JScrollPane(mandatoryArea));
-        addField(formPanel, gbc, row++, "Preferred requirements", new JScrollPane(preferredArea));
-        addField(formPanel, gbc, row++, "Additional requirements", new JScrollPane(bonusArea));
-        addField(formPanel, gbc, row++, "AI skill weights", new JScrollPane(aiCriteriaArea));
+        addField(formPanel, gbc, row++, "Responsibilities", areaScroll(responsibilitiesArea, 86));
+        addField(formPanel, gbc, row++, "Working Hours", areaScroll(hoursArea, 68));
+        addField(formPanel, gbc, row++, "Salary", areaScroll(salaryArea, 68));
+        addField(formPanel, gbc, row++, "Mandatory requirements", areaScroll(mandatoryArea, 82));
+        addField(formPanel, gbc, row++, "Preferred requirements", areaScroll(preferredArea, 82));
+        addField(formPanel, gbc, row++, "Additional requirements", areaScroll(bonusArea, 82));
+        addField(formPanel, gbc, row++, "AI skill weights", areaScroll(aiCriteriaArea, 86));
 
         JButton saveDraftButton = PrototypeUi.secondaryButton("Save Draft");
         saveDraftButton.addActionListener(e -> save("DRAFT"));
@@ -119,6 +143,14 @@ public class PositionManagePanel extends JPanel {
         return formPanel;
     }
 
+    private JScrollPane areaScroll(JTextArea area, int height) {
+        JScrollPane scrollPane = new JScrollPane(area);
+        scrollPane.setPreferredSize(new Dimension(260, height));
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(12);
+        return scrollPane;
+    }
+
     private void addField(JPanel panel, GridBagConstraints gbc, int row, String label, java.awt.Component component) {
         gbc.gridx = 0;
         gbc.gridy = row;
@@ -130,6 +162,7 @@ public class PositionManagePanel extends JPanel {
 
     private void save(String status) {
         try {
+            String operatorUserId = currentUserId().isBlank() ? "SYSTEM" : currentUserId();
             TAPosition saved = positionService.savePosition(new PositionUpsertRequest(
                     positionIdField.getText(),
                     courseIdField.getText(),
@@ -148,8 +181,8 @@ public class PositionManagePanel extends JPanel {
                     preferredArea.getText(),
                     bonusArea.getText(),
                     aiCriteriaArea.getText(),
-                    SessionContext.getCurrentUser() == null ? "SYSTEM" : SessionContext.getCurrentUser().userId()
-            ), SessionContext.getCurrentUser() == null ? "SYSTEM" : SessionContext.getCurrentUser().userId());
+                    operatorUserId
+            ), operatorUserId);
             positionIdField.setText(saved.positionId());
             JOptionPane.showMessageDialog(this, "Saved as " + status + " with ID " + saved.positionId());
             refreshTable();
@@ -167,7 +200,7 @@ public class PositionManagePanel extends JPanel {
         }
         String positionId = tableModel.getValueAt(selectedRow, 0).toString();
         try {
-            positionService.unpublish(positionId);
+            positionService.unpublish(positionId, currentUserId());
             refreshTable();
             JOptionPane.showMessageDialog(this, "Position " + positionId + " is now UNPUBLISHED.");
         } catch (Exception ex) {
@@ -177,7 +210,10 @@ public class PositionManagePanel extends JPanel {
 
     private void refreshTable() {
         tableModel.setRowCount(0);
-        List<TAPosition> positions = positionService.listAll();
+        String currentUserId = currentUserId();
+        List<TAPosition> positions = currentUserId.isBlank()
+                ? positionService.listAll()
+                : positionService.listByCreator(currentUserId);
         for (TAPosition p : positions) {
             tableModel.addRow(new Object[]{
                     p.positionId(), p.courseName(), p.instructorName(), p.deadline(), p.status(), p.headcount()
@@ -267,5 +303,9 @@ public class PositionManagePanel extends JPanel {
             builder.append(" - ").append(trimmed);
         }
         return builder.isEmpty() ? "-" : builder.toString();
+    }
+
+    private String currentUserId() {
+        return SessionContext.getCurrentUser() == null ? "" : SessionContext.getCurrentUser().userId();
     }
 }

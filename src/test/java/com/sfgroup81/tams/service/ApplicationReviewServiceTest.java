@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApplicationReviewServiceTest {
     @TempDir
@@ -110,5 +111,9 @@ class ApplicationReviewServiceTest {
         assertEquals("Interview on Tuesday", view.history().get(1).note());
         assertEquals(2, notificationRepository.findByUserId("U0001").size());
         assertEquals("Application status updated", notificationRepository.findByUserId("U0001").get(0).title());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> reviewService.updateStatus("APP-U0001-P0001", ApplicationStatus.HIRED, "Wrong MO", "U9999"));
+        assertEquals("Only the MO who created this position can update its applications", ex.getMessage());
     }
 }

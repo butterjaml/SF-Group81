@@ -100,7 +100,7 @@ public class TAInterviewManagementPanel extends JPanel {
             });
         }
         List<String> reminders = interviewService.listReminderMessages(currentUser.userId(), LocalDateTime.now());
-        reminderLabel.setText(reminders.isEmpty() ? "No interview reminders right now." : reminders.getFirst());
+        reminderLabel.setText(reminders.isEmpty() ? "No interview reminders right now." : reminders.get(0));
         if (!invitations.isEmpty()) {
             table.setRowSelectionInterval(0, 0);
             renderSelected();

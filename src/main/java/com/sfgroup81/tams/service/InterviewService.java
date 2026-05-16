@@ -4,8 +4,10 @@ import com.sfgroup81.tams.model.ApplicationStatus;
 import com.sfgroup81.tams.model.InterviewInvitation;
 import com.sfgroup81.tams.model.InterviewResponseStatus;
 import com.sfgroup81.tams.model.TAApplication;
+import com.sfgroup81.tams.model.TAPosition;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
 import com.sfgroup81.tams.repository.InterviewInvitationCsvRepository;
+import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
 
 import java.time.LocalDateTime;
@@ -18,6 +20,7 @@ public class InterviewService {
     private final TAApplicationCsvRepository applicationRepository;
     private final ApplicationStatusHistoryCsvRepository historyRepository;
     private final InterviewInvitationCsvRepository invitationRepository;
+    private final PositionCsvRepository positionRepository;
     private final AuditLogService auditLogService;
     private final SemesterService semesterService;
     private final NotificationService notificationService;
@@ -49,9 +52,20 @@ public class InterviewService {
                             SemesterService semesterService,
                             AuditLogService auditLogService,
                             NotificationService notificationService) {
+        this(applicationRepository, historyRepository, invitationRepository, null, semesterService, auditLogService, notificationService);
+    }
+
+    public InterviewService(TAApplicationCsvRepository applicationRepository,
+                            ApplicationStatusHistoryCsvRepository historyRepository,
+                            InterviewInvitationCsvRepository invitationRepository,
+                            PositionCsvRepository positionRepository,
+                            SemesterService semesterService,
+                            AuditLogService auditLogService,
+                            NotificationService notificationService) {
         this.applicationRepository = applicationRepository;
         this.historyRepository = historyRepository;
         this.invitationRepository = invitationRepository;
+        this.positionRepository = positionRepository;
         this.semesterService = semesterService;
         this.auditLogService = auditLogService;
         this.notificationService = notificationService;
@@ -73,6 +87,7 @@ public class InterviewService {
                                                  String changedBy) {
         TAApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
+        ensureOperatorOwnsPosition(application, changedBy);
         validateScheduledAt(scheduledAt);
         String now = now();
         applicationRepository.saveOrUpdate(new TAApplication(
@@ -207,6 +222,21 @@ public class InterviewService {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private void ensureOperatorOwnsPosition(TAApplication application, String changedBy) {
+        if (positionRepository == null) {
+            return;
+        }
+        String operator = safe(changedBy);
+        if (operator.isBlank() || "SYSTEM".equalsIgnoreCase(operator)) {
+            return;
+        }
+        TAPosition position = positionRepository.findById(application.positionId())
+                .orElseThrow(() -> new IllegalArgumentException("Position not found for application: " + application.positionId()));
+        if (!operator.equals(position.createdBy())) {
+            throw new IllegalArgumentException("Only the MO who created this position can update its applications");
+        }
     }
 
     private boolean isVisibleInSemesterView(TAApplication application) {

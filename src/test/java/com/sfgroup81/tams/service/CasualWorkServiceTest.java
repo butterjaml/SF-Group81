@@ -87,6 +87,6 @@ class CasualWorkServiceTest {
 
         assertEquals(1, service.listOpenPostings().size());
         assertEquals(1, service.listApplicationsForPosting("CW0001").size());
-        assertEquals("I am modular and already hired this semester", service.listApplicationsForPosting("CW0001").getFirst().statement());
+        assertEquals("I am modular and already hired this semester", service.listApplicationsForPosting("CW0001").get(0).statement());
     }
 }

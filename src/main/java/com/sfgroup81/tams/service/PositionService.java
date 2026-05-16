@@ -34,6 +34,17 @@ public class PositionService {
         return visiblePositions(repository.findAll());
     }
 
+    public List<TAPosition> listByCreator(String creatorUserId) {
+        String creator = safe(creatorUserId);
+        if (creator.isBlank()) {
+            return List.of();
+        }
+        closeExpiredPositions();
+        return visiblePositions(repository.findAll()).stream()
+                .filter(position -> creator.equals(position.createdBy()))
+                .toList();
+    }
+
     public List<TAPosition> listAllSemesters() {
         closeExpiredPositions();
         return repository.findAll();
@@ -47,7 +58,7 @@ public class PositionService {
 
     public List<TAPosition> listOpenPublishedPositions() {
         closeExpiredPositions();
-        return repository.findAll().stream()
+        return visiblePositions(repository.findAll()).stream()
                 .filter(position -> "PUBLISHED".equalsIgnoreCase(position.status()))
                 .toList();
     }
@@ -121,6 +132,7 @@ public class PositionService {
                 : request.positionId().trim();
         TAPosition existing = repository.findById(resolvedId).orElse(null);
         ensureEditable(existing);
+        ensureOwner(existing, operatorUserId);
         String creator = resolveCreator(request.createdBy(), operatorUserId, existing);
 
         TAPosition saved = new TAPosition(
@@ -152,9 +164,14 @@ public class PositionService {
     }
 
     public TAPosition unpublish(String positionId) {
+        return unpublish(positionId, null);
+    }
+
+    public TAPosition unpublish(String positionId, String operatorUserId) {
         TAPosition existing = repository.findById(positionId)
                 .orElseThrow(() -> new IllegalArgumentException("Position not found: " + positionId));
         ensureEditable(existing);
+        ensureOwner(existing, operatorUserId);
         TAPosition closed = new TAPosition(
                 existing.positionId(),
                 existing.courseId(),
@@ -178,7 +195,8 @@ public class PositionService {
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
         TAPosition result = repository.saveOrUpdate(closed);
-        auditLogService.record("POSITION_UNPUBLISHED", existing.createdBy(),
+        auditLogService.record("POSITION_UNPUBLISHED",
+                safe(operatorUserId).isBlank() ? existing.createdBy() : operatorUserId,
                 "Unpublished " + result.positionId() + " / " + result.courseName());
         return result;
     }
@@ -252,13 +270,34 @@ public class PositionService {
         if (existing != null) {
             return existing.createdBy();
         }
+        String operator = safe(operatorUserId);
+        if (!operator.isBlank() && !isSystemOperator(operator)) {
+            return operator;
+        }
         if (requestCreatedBy != null && !requestCreatedBy.isBlank()) {
             return requestCreatedBy.trim();
         }
-        if (operatorUserId != null && !operatorUserId.isBlank()) {
-            return operatorUserId.trim();
+        if (!operator.isBlank()) {
+            return operator;
         }
         return "SYSTEM";
+    }
+
+    private void ensureOwner(TAPosition existing, String operatorUserId) {
+        if (existing == null) {
+            return;
+        }
+        String operator = safe(operatorUserId);
+        if (operator.isBlank() || isSystemOperator(operator)) {
+            return;
+        }
+        if (!operator.equals(existing.createdBy())) {
+            throw new IllegalArgumentException("Only the MO who created this position can modify it");
+        }
+    }
+
+    private boolean isSystemOperator(String operatorUserId) {
+        return "SYSTEM".equalsIgnoreCase(safe(operatorUserId));
     }
 
     private String safe(String value) {

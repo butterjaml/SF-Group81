@@ -2,6 +2,7 @@ package com.sfgroup81.tams.service;
 
 import com.sfgroup81.tams.model.ApplicationStatus;
 import com.sfgroup81.tams.model.TAApplication;
+import com.sfgroup81.tams.model.TAPosition;
 import com.sfgroup81.tams.repository.ApplicationStatusHistoryCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
@@ -44,8 +45,9 @@ public class ApplicationReviewService {
     public TAApplication updateStatus(String applicationId, ApplicationStatus status, String note, String changedBy) {
         TAApplication existing = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
-        positionRepository.findById(existing.positionId())
+        TAPosition position = positionRepository.findById(existing.positionId())
                 .orElseThrow(() -> new IllegalArgumentException("Position not found for application: " + existing.positionId()));
+        ensureOperatorOwnsPosition(position, changedBy);
 
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         TAApplication updated = new TAApplication(
@@ -71,6 +73,16 @@ public class ApplicationReviewService {
                 existing.applicationId()
         );
         return updated;
+    }
+
+    private void ensureOperatorOwnsPosition(TAPosition position, String changedBy) {
+        String operator = changedBy == null ? "" : changedBy.trim();
+        if (operator.isBlank() || "SYSTEM".equalsIgnoreCase(operator)) {
+            return;
+        }
+        if (!operator.equals(position.createdBy())) {
+            throw new IllegalArgumentException("Only the MO who created this position can update its applications");
+        }
     }
 
     private String buildNotificationMessage(String positionId, ApplicationStatus status, String note) {

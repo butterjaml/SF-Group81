@@ -113,6 +113,7 @@ public class LoginFrame extends JFrame {
             applicationRepository,
             historyRepository,
             interviewRepository,
+            positionRepository,
             semesterService,
             auditLogService,
             notificationService
