@@ -38,6 +38,26 @@ public class EnrollmentAutofillService {
     }
 
     public EnrollmentAutofillSnapshot loadLatestForUser(String userId, String targetSemesterId) {
+        Optional<ApplicantProfile> currentProfile = targetSemesterId == null || targetSemesterId.isBlank()
+                ? Optional.empty()
+                : profileRepository.findByUserIdAndSemesterId(userId, targetSemesterId);
+        if (currentProfile.isPresent()) {
+            List<TAApplication> currentApplications = applicationRepository.findByUserIdAndSemesterId(userId, targetSemesterId).stream()
+                    .sorted(Comparator.comparing(TAApplication::updatedAt).reversed())
+                    .toList();
+            Optional<ResumeFileRecord> currentResume = currentApplications.stream()
+                    .map(TAApplication::applicationId)
+                    .map(resumeRepository::findByApplicationId)
+                    .flatMap(Optional::stream)
+                    .findFirst();
+            return new EnrollmentAutofillSnapshot(
+                    targetSemesterId,
+                    currentProfile,
+                    currentApplications.stream().map(TAApplication::positionId).distinct().toList(),
+                    currentResume
+            );
+        }
+
         Optional<EnrollmentProfileSnapshot> priorSnapshot = findLatestPriorSnapshot(userId, targetSemesterId);
         if (priorSnapshot.isPresent()) {
             EnrollmentProfileSnapshot snapshot = priorSnapshot.get();

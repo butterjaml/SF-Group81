@@ -2,11 +2,13 @@ package com.sfgroup81.tams.ui.ta;
 
 import com.sfgroup81.tams.model.CourseOption;
 import com.sfgroup81.tams.model.User;
+import com.sfgroup81.tams.ui.PrototypeUi;
 import com.sfgroup81.tams.repository.ApplicationPreferenceCsvRepository;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.service.CourseSelectionService;
 import com.sfgroup81.tams.service.SessionContext;
 
+import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -34,10 +36,20 @@ public class CourseSelectPanel extends JPanel {
     );
 
     public CourseSelectPanel() {
-        setLayout(new BorderLayout(8, 8));
+        this(null);
+    }
 
-        JLabel title = new JLabel("One-stop Enrollment: Course Preferences (up to 3 courses)", JLabel.CENTER);
-        add(title, BorderLayout.NORTH);
+    public CourseSelectPanel(Runnable onBack) {
+        setLayout(new BorderLayout(8, 8));
+        setBackground(PrototypeUi.PANEL_BACKGROUND);
+        add(PrototypeUi.createHeader("Course Preferences", onBack), BorderLayout.NORTH);
+
+        JPanel content = new JPanel(new BorderLayout(12, 12));
+        content.setOpaque(false);
+        content.setBorder(BorderFactory.createEmptyBorder(24, 36, 24, 36));
+
+        JLabel title = PrototypeUi.sectionTitle("Select up to 3 preferred courses before applying");
+        content.add(title, BorderLayout.NORTH);
 
         availableList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         availableList.addListSelectionListener(e -> {
@@ -65,16 +77,18 @@ public class CourseSelectPanel extends JPanel {
                 new JScrollPane(selectedPreview)
         );
         split.setResizeWeight(0.6);
-        add(split, BorderLayout.CENTER);
+        content.add(split, BorderLayout.CENTER);
 
         JPanel actions = new JPanel();
+        actions.setOpaque(false);
         JButton refreshButton = new JButton("Refresh Courses");
         refreshButton.addActionListener(e -> loadCoursesAndRestoreSelection());
         JButton saveButton = new JButton("Save Preferences");
         saveButton.addActionListener(e -> savePreferences());
         actions.add(refreshButton);
         actions.add(saveButton);
-        add(actions, BorderLayout.SOUTH);
+        content.add(actions, BorderLayout.SOUTH);
+        add(content, BorderLayout.CENTER);
 
         loadCoursesAndRestoreSelection();
     }

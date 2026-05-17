@@ -197,8 +197,8 @@ class PositionServiceTest {
         PositionCsvRepository repository = new PositionCsvRepository(tempDir);
         PositionService service = new PositionService(repository);
 
-        service.savePosition(new PositionUpsertRequest(
-                "",
+        repository.saveOrUpdate(new TAPosition(
+                "P0001",
                 "COMP201",
                 "Algorithms",
                 "Prof. Chen",
@@ -214,11 +214,14 @@ class PositionServiceTest {
                 "Strong algorithms grade",
                 "",
                 "",
-                "U0003"
-        ), "U0003");
-
-        service.savePosition(new PositionUpsertRequest(
                 "",
+                "U0003",
+                "2026-02-01T09:00:00",
+                "2026-02-01T09:00:00"
+        ));
+
+        repository.saveOrUpdate(new TAPosition(
+                "P0002",
                 "COMP202",
                 "Databases",
                 "Prof. Wang",
@@ -234,8 +237,11 @@ class PositionServiceTest {
                 "Strong database grade",
                 "",
                 "",
-                "U0003"
-        ), "U0003");
+                "",
+                "U0003",
+                "2026-02-01T09:00:00",
+                "2026-02-01T09:00:00"
+        ));
 
         service.closeExpiredPositions(LocalDate.of(2026, 3, 29));
 
@@ -269,5 +275,63 @@ class PositionServiceTest {
         ), "U0002"));
 
         assertEquals("Deadline must use YYYY-MM-DD format, for example 2026-04-15", ex.getMessage());
+    }
+
+    @Test
+    void savePublishedPositionShouldRejectPastDeadlineBecauseTaCannotSelectIt() {
+        DataBootstrap.initialize(tempDir);
+        PositionService service = new PositionService(new PositionCsvRepository(tempDir));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.savePosition(new PositionUpsertRequest(
+                "",
+                "COMP902",
+                "Software Quality",
+                "Dr. Li",
+                "2026S1",
+                "Modular TA",
+                1,
+                LocalDate.now().minusDays(1).toString(),
+                "PUBLISHED",
+                "Quality TA",
+                "Support labs",
+                "4 hours/week",
+                "Base 80 yuan/hour",
+                "Requirement",
+                "",
+                "",
+                "Requirement=100",
+                "U0002"
+        ), "U0002"));
+
+        assertEquals("Published positions must use today or a future deadline so TAs can select the job", ex.getMessage());
+    }
+
+    @Test
+    void savePositionShouldValidateAiSkillWeightFormat() {
+        DataBootstrap.initialize(tempDir);
+        PositionService service = new PositionService(new PositionCsvRepository(tempDir));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.savePosition(new PositionUpsertRequest(
+                "",
+                "COMP903",
+                "AI Tools",
+                "Dr. Li",
+                "2026S1",
+                "Modular TA",
+                1,
+                LocalDate.now().plusDays(7).toString(),
+                "PUBLISHED",
+                "AI Tools TA",
+                "Support labs",
+                "4 hours/week",
+                "Base 80 yuan/hour",
+                "Requirement",
+                "",
+                "",
+                "Java=70; Teaching=20",
+                "U0002"
+        ), "U0002"));
+
+        assertTrue(ex.getMessage().contains("add up to 100"));
     }
 }

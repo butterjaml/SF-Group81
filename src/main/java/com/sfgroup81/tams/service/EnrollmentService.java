@@ -117,13 +117,6 @@ public class EnrollmentService {
                 now
         ));
 
-        List<String> existingApplicationIds = applicationRepository.findByUserIdAndSemesterId(submission.userId().trim(), semesterId).stream()
-                .map(TAApplication::applicationId)
-                .toList();
-        applicationRepository.deleteByUserIdAndSemesterId(submission.userId().trim(), semesterId);
-        for (String applicationId : existingApplicationIds) {
-            historyRepository.deleteByApplicationId(applicationId);
-        }
         preferenceRepository.saveForApplication(
                 preferenceBundleId(submission.userId().trim(), semesterId),
                 normalizedPositionIds.stream()
@@ -138,19 +131,24 @@ public class EnrollmentService {
         for (String positionId : normalizedPositionIds) {
             String applicationId = toApplicationId(submission.userId(), positionId);
             applicationIds.add(applicationId);
+            TAApplication existing = applicationRepository.findById(applicationId).orElse(null);
             TAApplication application = new TAApplication(
                     applicationId,
                     submission.userId().trim(),
                     positionId,
                     semesterId,
                     priority++,
-                    ApplicationStatus.PENDING_REVIEW,
-                    "",
-                    now,
+                    existing == null ? ApplicationStatus.PENDING_REVIEW : existing.status(),
+                    existing == null ? "" : existing.feedback(),
+                    existing == null ? now : existing.submittedAt(),
                     now
             );
             applicationRepository.saveOrUpdate(application);
-            historyRepository.save(applicationId, ApplicationStatus.PENDING_REVIEW, "Application submitted", submission.userId(), now);
+            if (existing == null) {
+                historyRepository.save(applicationId, ApplicationStatus.PENDING_REVIEW, "Application submitted", submission.userId(), now);
+            } else {
+                historyRepository.save(applicationId, existing.status(), "Application package updated", submission.userId(), now);
+            }
         }
 
         resumeUploadService.uploadResumeForApplications(submission.userId(), applicationIds, submission.resumeSourceFile());
