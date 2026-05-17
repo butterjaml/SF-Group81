@@ -175,7 +175,7 @@ public class LoginFrame extends JFrame {
                     this::showTAStatus,
                     this::showTAInterviews,
                     this::showTACasualWork,
-                    casualWorkService.canApplyCasualWork(currentUser.userId()),
+                    true,
                     () -> showTAEnrollment(null),
                     notificationService.listForUser(currentUser.userId()),
                     this::markAllNotificationsAsRead,
@@ -245,8 +245,8 @@ public class LoginFrame extends JFrame {
     }
 
     private void showTACasualWork() {
-        if (currentUser == null || !casualWorkService.canApplyCasualWork(currentUser.userId())) {
-            showPlannedMessage("Casual work is available only to TAs hired for the current semester.");
+        if (currentUser == null) {
+            showRoleHome();
             return;
         }
         auditLogService.record("DATA_ACCESS", currentUser.userId(), "Opened TA casual work browser");
@@ -350,7 +350,4 @@ public class LoginFrame extends JFrame {
         repaint();
     }
 
-    private void showPlannedMessage(String message) {
-        javax.swing.JOptionPane.showMessageDialog(this, message);
-    }
 }

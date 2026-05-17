@@ -27,11 +27,13 @@ public class CasualWorkBrowserPanel extends JPanel {
     private final JTable table = new JTable(tableModel);
     private final JTextArea detailsArea = new JTextArea();
     private final JTextArea statementArea = new JTextArea(4, 24);
+    private final boolean canApply;
     private List<CasualWorkPosting> postings = List.of();
 
     public CasualWorkBrowserPanel(User currentUser, CasualWorkService casualWorkService, Runnable onBack) {
         this.currentUser = currentUser;
         this.casualWorkService = casualWorkService;
+        this.canApply = currentUser != null && casualWorkService.canApplyCasualWork(currentUser.userId());
         setLayout(new BorderLayout());
         setBackground(PrototypeUi.PANEL_BACKGROUND);
         add(PrototypeUi.createHeader("Temporary work", onBack), BorderLayout.NORTH);
@@ -47,7 +49,9 @@ public class CasualWorkBrowserPanel extends JPanel {
         JPanel hint = PrototypeUi.createVerticalCard();
         hint.add(PrototypeUi.sectionTitle("Quick Apply"));
         PrototypeUi.addVerticalGap(hint, 6);
-        hint.add(new JLabel("You can apply directly, or leave a short statement for the Admin."));
+        hint.add(new JLabel(canApply
+                ? "You can apply directly, or leave a short statement for the Admin."
+                : "Open postings are visible. Applications are limited to TAs hired for the current semester."));
         content.add(hint, BorderLayout.NORTH);
 
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -130,6 +134,13 @@ public class CasualWorkBrowserPanel extends JPanel {
     }
 
     private void applyForSelectedPosting() {
+        if (!canApply) {
+            JOptionPane.showMessageDialog(this,
+                    "Casual work is available only to TAs hired for the current semester.",
+                    "Apply Failed",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         int row = table.getSelectedRow();
         if (row < 0 || row >= postings.size()) {
             JOptionPane.showMessageDialog(this, "Select a posting first.");
