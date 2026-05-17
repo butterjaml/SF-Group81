@@ -21,30 +21,42 @@ import com.sfgroup81.tams.service.SemesterService;
 import com.sfgroup81.tams.ui.PrototypeUi;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.Dialog;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Window;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -96,6 +108,10 @@ public class MOCandidateManagementPanel extends JPanel {
     private final JPanel comparisonGrid = new JPanel(new GridLayout(1, MAX_COMPARE, 12, 12));
 
     private List<CandidateScreeningView> currentCandidates = List.of();
+    private SwingWorker<List<CandidateScreeningView>, Void> refreshWorker;
+    private boolean refreshQueued;
+    private boolean suppressRefresh;
+    private JDialog loadingDialog;
 
     public MOCandidateManagementPanel(User currentUser,
                                       PositionCsvRepository positionRepository,
@@ -123,7 +139,7 @@ public class MOCandidateManagementPanel extends JPanel {
         add(buildContent(), BorderLayout.CENTER);
 
         loadPositions();
-        refreshCandidates();
+        SwingUtilities.invokeLater(this::refreshCandidates);
     }
 
     private JPanel buildContent() {
@@ -131,19 +147,24 @@ public class MOCandidateManagementPanel extends JPanel {
         content.setOpaque(false);
         content.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
 
-        JPanel top = new JPanel(new BorderLayout(16, 16));
-        top.setOpaque(false);
-        top.add(buildFilterCard(), BorderLayout.CENTER);
-        top.add(buildAiReferenceCard(), BorderLayout.EAST);
-        content.add(top, BorderLayout.NORTH);
+        content.add(buildFilterCard(), BorderLayout.NORTH);
 
-        JPanel center = new JPanel(new BorderLayout(16, 16));
-        center.setOpaque(false);
-        center.add(buildTableSection(), BorderLayout.CENTER);
-        center.add(buildRightPanel(), BorderLayout.EAST);
-        content.add(center, BorderLayout.CENTER);
+        JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, buildTableSection(), buildRightPanel());
+        horizontalSplit.setBorder(null);
+        horizontalSplit.setContinuousLayout(true);
+        horizontalSplit.setOneTouchExpandable(true);
+        horizontalSplit.setResizeWeight(0.68);
+        horizontalSplit.setDividerLocation(0.68);
+        horizontalSplit.setMinimumSize(new Dimension(0, 260));
 
-        content.add(buildComparisonSection(), BorderLayout.SOUTH);
+        JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, horizontalSplit, buildComparisonSection());
+        verticalSplit.setBorder(null);
+        verticalSplit.setContinuousLayout(true);
+        verticalSplit.setOneTouchExpandable(true);
+        verticalSplit.setResizeWeight(0.72);
+        verticalSplit.setDividerLocation(0.72);
+        verticalSplit.setMinimumSize(new Dimension(0, 0));
+        content.add(verticalSplit, BorderLayout.CENTER);
         return content;
     }
 
@@ -196,21 +217,18 @@ public class MOCandidateManagementPanel extends JPanel {
         return card;
     }
 
-    private JPanel buildAiReferenceCard() {
-        JPanel card = PrototypeUi.createVerticalCard();
-        card.setPreferredSize(new Dimension(320, 0));
-        card.add(PrototypeUi.sectionTitle("AI Skill Reference"));
-        PrototypeUi.addVerticalGap(card, 12);
-        card.add(PrototypeUi.mutedLabel("MO-defined weighted skills are sent to the model together with the full job requirements and the extracted resume text."));
-        PrototypeUi.addVerticalGap(card, 10);
+    private JPanel buildAiReferencePanel() {
+        JPanel card = PrototypeUi.createCard();
+        card.setLayout(new BorderLayout(8, 8));
+        card.add(PrototypeUi.sectionTitle("AI Skill Reference"), BorderLayout.NORTH);
         aiReferenceArea.setEditable(false);
         aiReferenceArea.setLineWrap(true);
         aiReferenceArea.setWrapStyleWord(true);
-        card.add(new JScrollPane(aiReferenceArea));
-        PrototypeUi.addVerticalGap(card, 10);
+        card.add(sizedScrollPane(aiReferenceArea, 92), BorderLayout.CENTER);
         JButton rerunButton = PrototypeUi.primaryButton("Refresh AI Screening");
         rerunButton.addActionListener(e -> refreshCandidates());
-        card.add(rerunButton);
+        card.add(rerunButton, BorderLayout.SOUTH);
+        constrainHeight(card);
         return card;
     }
 
@@ -218,7 +236,7 @@ public class MOCandidateManagementPanel extends JPanel {
         JPanel section = new JPanel(new BorderLayout(12, 12));
         section.setOpaque(false);
 
-        JPanel actions = new JPanel();
+        JPanel actions = new JPanel(new GridLayout(1, 4, 8, 0));
         actions.setOpaque(false);
         JButton exportRankedButton = PrototypeUi.primaryButton("Export Ranked CSV");
         exportRankedButton.addActionListener(e -> exportRankedCandidates());
@@ -235,6 +253,7 @@ public class MOCandidateManagementPanel extends JPanel {
         section.add(actions, BorderLayout.NORTH);
 
         table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         table.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 renderSelectedDetails();
@@ -259,26 +278,40 @@ public class MOCandidateManagementPanel extends JPanel {
         referralSummaryArea.setLineWrap(true);
         referralSummaryArea.setWrapStyleWord(true);
 
-        JPanel top = new JPanel(new BorderLayout(8, 8));
-        top.setOpaque(false);
-        top.add(new JScrollPane(detailArea), BorderLayout.CENTER);
-        top.add(new JScrollPane(noteArea), BorderLayout.SOUTH);
-        right.add(top, BorderLayout.CENTER);
-        right.add(buildActionPanel(), BorderLayout.SOUTH);
+        JPanel stack = new JPanel();
+        stack.setOpaque(false);
+        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+        stack.add(buildStatusActions());
+        stack.add(Box.createVerticalStrut(10));
+        stack.add(buildAiReferencePanel());
+        stack.add(Box.createVerticalStrut(10));
+        stack.add(sizedScrollPane(detailArea, 160));
+        stack.add(Box.createVerticalStrut(10));
+        stack.add(sizedScrollPane(noteArea, 96));
+        stack.add(Box.createVerticalStrut(10));
+        stack.add(buildInterviewPanel());
+        stack.add(Box.createVerticalStrut(10));
+        stack.add(buildReferralPanel());
+
+        JScrollPane scrollPane = new JScrollPane(stack);
+        scrollPane.setBorder(null);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        right.add(scrollPane, BorderLayout.CENTER);
         return right;
     }
 
-    private JPanel buildActionPanel() {
-        JPanel actions = new JPanel(new GridLayout(0, 1, 0, 8));
-        actions.setOpaque(false);
-
-        JPanel statusActions = new JPanel();
-        statusActions.setOpaque(false);
+    private JPanel buildStatusActions() {
+        JPanel statusActions = PrototypeUi.createCard();
+        statusActions.setLayout(new GridLayout(1, 3, 8, 0));
         statusActions.add(createStatusButton("Pending", ApplicationStatus.PENDING_REVIEW));
         statusActions.add(createStatusButton("Hired", ApplicationStatus.HIRED));
         statusActions.add(createStatusButton("Rejected", ApplicationStatus.REJECTED));
-        actions.add(statusActions);
+        constrainHeight(statusActions);
+        return statusActions;
+    }
 
+    private JPanel buildInterviewPanel() {
         JPanel interviewRow = PrototypeUi.createCard();
         interviewRow.setLayout(new GridLayout(0, 1, 6, 6));
         interviewRow.add(new JLabel("Interview time (ISO):"));
@@ -290,18 +323,34 @@ public class MOCandidateManagementPanel extends JPanel {
         JButton scheduleInterviewButton = PrototypeUi.primaryButton("Arrange Interview");
         scheduleInterviewButton.addActionListener(e -> scheduleInterview());
         interviewRow.add(scheduleInterviewButton);
-        actions.add(interviewRow);
+        constrainHeight(interviewRow);
+        return interviewRow;
+    }
 
+    private JPanel buildReferralPanel() {
         JPanel referralRow = PrototypeUi.createCard();
         referralRow.setLayout(new GridLayout(0, 1, 6, 6));
         referralRow.add(new JLabel("Internal referrals"));
-        referralRow.add(new JScrollPane(referralSummaryArea));
+        referralRow.add(sizedScrollPane(referralSummaryArea, 72));
         JButton tagReferralButton = PrototypeUi.secondaryButton("Add Internal Referral");
         tagReferralButton.addActionListener(e -> tagReferral());
         referralRow.add(tagReferralButton);
-        actions.add(referralRow);
+        constrainHeight(referralRow);
+        return referralRow;
+    }
 
-        return actions;
+    private JScrollPane sizedScrollPane(Component component, int height) {
+        JScrollPane scrollPane = new JScrollPane(component);
+        scrollPane.setPreferredSize(new Dimension(318, height));
+        scrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
+        scrollPane.getVerticalScrollBar().setUnitIncrement(12);
+        return scrollPane;
+    }
+
+    private void constrainHeight(JComponent component) {
+        component.setAlignmentX(Component.LEFT_ALIGNMENT);
+        Dimension preferred = component.getPreferredSize();
+        component.setMaximumSize(new Dimension(Integer.MAX_VALUE, preferred.height));
     }
 
     private JPanel buildComparisonSection() {
@@ -312,7 +361,11 @@ public class MOCandidateManagementPanel extends JPanel {
         section.add(title, BorderLayout.NORTH);
 
         comparisonGrid.setOpaque(false);
-        section.add(new JScrollPane(comparisonGrid), BorderLayout.CENTER);
+        JScrollPane comparisonScroll = new JScrollPane(comparisonGrid);
+        comparisonScroll.setPreferredSize(new Dimension(0, 190));
+        comparisonScroll.getVerticalScrollBar().setUnitIncrement(16);
+        section.add(comparisonScroll, BorderLayout.CENTER);
+        section.setMinimumSize(new Dimension(0, 120));
         return section;
     }
 
@@ -327,20 +380,32 @@ public class MOCandidateManagementPanel extends JPanel {
                 .filter(position -> semesterService == null || semesterService.matchesViewedSemester(position.semesterId()))
                 .filter(position -> currentUser != null && position.createdBy().equals(currentUser.userId()))
                 .toList());
-        positionCombo.setModel(new DefaultComboBoxModel<>(positions.toArray(new TAPosition[0])));
-        positionCombo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof TAPosition position) {
-                    label.setText(position.positionId() + " - " + position.courseName());
+        suppressRefresh = true;
+        try {
+            positionCombo.setModel(new DefaultComboBoxModel<>(positions.toArray(new TAPosition[0])));
+            positionCombo.setRenderer(new DefaultListCellRenderer() {
+                @Override
+                public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                    JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                    if (value instanceof TAPosition position) {
+                        label.setText(position.positionId() + " - " + position.courseName());
+                    }
+                    return label;
                 }
-                return label;
-            }
-        });
+            });
+        } finally {
+            suppressRefresh = false;
+        }
     }
 
     private void refreshCandidates() {
+        if (suppressRefresh) {
+            return;
+        }
+        if (refreshWorker != null && !refreshWorker.isDone()) {
+            refreshQueued = true;
+            return;
+        }
         tableModel.setRowCount(0);
         TAPosition selected = (TAPosition) positionCombo.getSelectedItem();
         if (selected == null) {
@@ -350,14 +415,55 @@ public class MOCandidateManagementPanel extends JPanel {
             return;
         }
 
-        currentCandidates = candidateScreeningService.screenCandidates(
-                selected,
-                buildCriteria(),
-                null,
-                (CandidateSortOption) sortCombo.getSelectedItem()
-        );
+        CandidateFilterCriteria criteria = buildCriteria();
+        CandidateSortOption sortOption = (CandidateSortOption) sortCombo.getSelectedItem();
         aiReferenceArea.setText(formatAiReference(selected));
+        detailArea.setText("AI is thinking. Candidate recommendations are loading...");
+        noteArea.setText("");
+        referralSummaryArea.setText("");
+        comparisonGrid.removeAll();
+        comparisonGrid.revalidate();
+        comparisonGrid.repaint();
+        showLoadingDialog();
 
+        refreshWorker = new SwingWorker<>() {
+            @Override
+            protected List<CandidateScreeningView> doInBackground() {
+                return candidateScreeningService.screenCandidates(
+                        selected,
+                        criteria,
+                        null,
+                        sortOption
+                );
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    applyCandidateRows(get());
+                } catch (Exception ex) {
+                    currentCandidates = List.of();
+                    detailArea.setText("Candidate recommendations could not be loaded.");
+                    JOptionPane.showMessageDialog(MOCandidateManagementPanel.this,
+                            ex.getMessage(),
+                            "Candidate Screening Failed",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    hideLoadingDialog();
+                    refreshWorker = null;
+                    if (refreshQueued) {
+                        refreshQueued = false;
+                        refreshCandidates();
+                    }
+                }
+            }
+        };
+        refreshWorker.execute();
+    }
+
+    private void applyCandidateRows(List<CandidateScreeningView> candidates) {
+        currentCandidates = candidates == null ? List.of() : candidates;
+        tableModel.setRowCount(0);
         for (CandidateScreeningView view : currentCandidates) {
             tableModel.addRow(new Object[]{
                     view.candidate().application().applicationId(),
@@ -371,7 +477,6 @@ public class MOCandidateManagementPanel extends JPanel {
                     view.candidate().application().submittedAt()
             });
         }
-
         updateActiveFilterLabel();
         if (!currentCandidates.isEmpty()) {
             table.setRowSelectionInterval(0, 0);
@@ -382,6 +487,42 @@ public class MOCandidateManagementPanel extends JPanel {
             comparisonGrid.removeAll();
             comparisonGrid.revalidate();
             comparisonGrid.repaint();
+        }
+    }
+
+    private void showLoadingDialog() {
+        if (!isShowing()) {
+            return;
+        }
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        if (owner == null) {
+            return;
+        }
+        if (loadingDialog != null && loadingDialog.isShowing()) {
+            return;
+        }
+        JDialog dialog = new JDialog(owner, "AI Screening", Dialog.ModalityType.MODELESS);
+        JPanel panel = PrototypeUi.createVerticalCard();
+        panel.add(PrototypeUi.sectionTitle("AI is thinking"));
+        PrototypeUi.addVerticalGap(panel, 10);
+        panel.add(new JLabel("Generating candidate recommendations. Please wait..."));
+        PrototypeUi.addVerticalGap(panel, 12);
+        JProgressBar progressBar = new JProgressBar();
+        progressBar.setIndeterminate(true);
+        progressBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(progressBar);
+        dialog.setContentPane(panel);
+        dialog.setResizable(false);
+        dialog.pack();
+        dialog.setLocationRelativeTo(owner);
+        loadingDialog = dialog;
+        dialog.setVisible(true);
+    }
+
+    private void hideLoadingDialog() {
+        if (loadingDialog != null) {
+            loadingDialog.dispose();
+            loadingDialog = null;
         }
     }
 
