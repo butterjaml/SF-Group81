@@ -1,6 +1,7 @@
 package com.sfgroup81.tams.ui.mo;
 
 import com.sfgroup81.tams.model.TAPosition;
+import com.sfgroup81.tams.service.AiSkillWeightFormat;
 import com.sfgroup81.tams.service.PositionService;
 import com.sfgroup81.tams.service.PositionUpsertRequest;
 import com.sfgroup81.tams.service.SessionContext;
@@ -59,6 +60,7 @@ public class PositionManagePanel extends JPanel {
         setBackground(PrototypeUi.PANEL_BACKGROUND);
         configureTextAreas();
         applyDefaultSemester();
+        applyAiWeightHint();
         add(PrototypeUi.createHeader("Job requirements", onBack), BorderLayout.NORTH);
 
         JPanel content = new JPanel(new BorderLayout(16, 16));
@@ -99,6 +101,11 @@ public class PositionManagePanel extends JPanel {
         }
     }
 
+    private void applyAiWeightHint() {
+        aiCriteriaArea.setText(AiSkillWeightFormat.DEFAULT_VALUE);
+        aiCriteriaArea.setToolTipText("Format: " + AiSkillWeightFormat.EXAMPLE + ". Weights must add up to 100.");
+    }
+
     private void applyDefaultSemester() {
         String viewedSemester = positionService.viewedSemesterId();
         if (!viewedSemester.isBlank() && semesterIdField.getText().trim().isEmpty()) {
@@ -131,6 +138,7 @@ public class PositionManagePanel extends JPanel {
         addField(formPanel, gbc, row++, "Preferred requirements", areaScroll(preferredArea, 82));
         addField(formPanel, gbc, row++, "Additional requirements", areaScroll(bonusArea, 82));
         addField(formPanel, gbc, row++, "AI skill weights", areaScroll(aiCriteriaArea, 86));
+        addField(formPanel, gbc, row++, "AI format", PrototypeUi.mutedLabel("Use Skill=Weight; weights add up to 100. Default: " + AiSkillWeightFormat.DEFAULT_VALUE));
 
         JButton saveDraftButton = PrototypeUi.secondaryButton("Save Draft");
         saveDraftButton.addActionListener(e -> save("DRAFT"));
@@ -251,7 +259,7 @@ public class PositionManagePanel extends JPanel {
         mandatoryArea.setText(position.mandatoryRequirements());
         preferredArea.setText(position.preferredRequirements());
         bonusArea.setText(position.bonusRequirements());
-        aiCriteriaArea.setText(position.aiScreeningCriteria());
+        aiCriteriaArea.setText(AiSkillWeightFormat.normalizeOrDefault(position.aiScreeningCriteria()));
         previewArea.setText(buildPreview(position));
     }
 

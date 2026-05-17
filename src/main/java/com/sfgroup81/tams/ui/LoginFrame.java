@@ -47,6 +47,7 @@ import com.sfgroup81.tams.ui.mo.TAFeedbackPanel;
 import com.sfgroup81.tams.ui.ta.TAApplicationStatusPanel;
 import com.sfgroup81.tams.ui.ta.TADashboardPanel;
 import com.sfgroup81.tams.ui.ta.CasualWorkBrowserPanel;
+import com.sfgroup81.tams.ui.ta.CourseSelectPanel;
 import com.sfgroup81.tams.ui.ta.TAEnrollmentPanel;
 import com.sfgroup81.tams.ui.ta.TAInterviewManagementPanel;
 import com.sfgroup81.tams.ui.ta.TAJobBrowserPanel;
@@ -177,6 +178,7 @@ public class LoginFrame extends JFrame {
                     this::showTACasualWork,
                     true,
                     () -> showTAEnrollment(null),
+                    this::showTACoursePreferences,
                     notificationService.listForUser(currentUser.userId()),
                     this::markAllNotificationsAsRead,
                     this::openNotificationTarget,
@@ -229,6 +231,12 @@ public class LoginFrame extends JFrame {
                 this::showTAStatus,
                 preselectedPositionId
         ));
+        refreshFrame();
+    }
+
+    private void showTACoursePreferences() {
+        auditLogService.record("DATA_ACCESS", currentUser.userId(), "Opened TA course preference selection");
+        setContentPane(new CourseSelectPanel(this::showRoleHome));
         refreshFrame();
     }
 

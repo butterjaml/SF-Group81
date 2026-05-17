@@ -81,4 +81,44 @@ class EnrollmentAutofillServiceTest {
         assertEquals(List.of("P0099", "P0100"), snapshot.positionIds());
         assertTrue(snapshot.resume().isPresent());
     }
+
+    @Test
+    void shouldAutofillCurrentSemesterProfileWhenApplyingAgain() throws Exception {
+        DataBootstrap.initialize(tempDir);
+        ApplicantProfileCsvRepository profileRepository = new ApplicantProfileCsvRepository(tempDir);
+        TAApplicationCsvRepository applicationRepository = new TAApplicationCsvRepository(tempDir);
+        ResumeFileCsvRepository resumeRepository = new ResumeFileCsvRepository(tempDir);
+        EnrollmentProfileSnapshotCsvRepository snapshotRepository = new EnrollmentProfileSnapshotCsvRepository(tempDir);
+
+        profileRepository.saveOrUpdate(new ApplicantProfile(
+                "U0004",
+                "2026S1",
+                "18800001111",
+                "Computer Science",
+                "Year 3",
+                "3.86",
+                "Java; Selenium",
+                "Weekday afternoons",
+                "Current semester saved profile",
+                "2026-05-01T10:00:00"
+        ));
+        applicationRepository.saveOrUpdate(new TAApplication(
+                "APP-U0004-P0001",
+                "U0004",
+                "P0001",
+                "2026S1",
+                1,
+                ApplicationStatus.PENDING_REVIEW,
+                "",
+                "2026-05-01T09:00:00",
+                "2026-05-01T09:00:00"
+        ));
+
+        EnrollmentAutofillService service = new EnrollmentAutofillService(profileRepository, applicationRepository, resumeRepository, snapshotRepository);
+        EnrollmentAutofillSnapshot snapshot = service.loadLatestForUser("U0004", "2026S1");
+
+        assertTrue(snapshot.profile().isPresent());
+        assertEquals("Current semester saved profile", snapshot.profile().orElseThrow().notes());
+        assertEquals(List.of("P0001"), snapshot.positionIds());
+    }
 }

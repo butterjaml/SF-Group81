@@ -10,11 +10,13 @@ import java.util.Map;
 public final class DataBootstrap {
     private static final Path DATA_DIR = Path.of("data");
     private static final Path RESUME_DIR = DATA_DIR.resolve("resumes");
+    private static final String TA_POSITIONS_HEADER = "position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,ai_screening_criteria,created_by,created_at,updated_at";
+    private static final String LEGACY_TA_POSITIONS_HEADER = "position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,created_by,created_at,updated_at";
 
     private static final Map<String, String> BASE_HEADERS = Map.ofEntries(
             Map.entry("users.csv", "user_id,name,staff_or_student_id,email,password_hash,role,ta_category,status,last_login_at"),
             Map.entry("audit_logs.csv", "log_id,event_type,user_id,user_name,event_time,ip_address,details"),
-            Map.entry("ta_positions.csv", "position_id,course_id,course_name,instructor_name,semester_id,position_type,headcount,deadline,status,title,responsibilities,working_hours,salary_info,mandatory_requirements,preferred_requirements,bonus_requirements,ai_screening_criteria,created_by,created_at,updated_at"),
+            Map.entry("ta_positions.csv", TA_POSITIONS_HEADER),
             Map.entry("application_preferences.csv", "preference_id,application_id,course_id,priority_no"),
             Map.entry("resume_files.csv", "resume_id,application_id,file_path,file_type,auto_filename,uploaded_at,updated_at"),
             Map.entry("applicant_profiles.csv", "user_id,semester_id,phone,major,year_of_study,gpa,skills,availability,notes,updated_at"),
@@ -44,11 +46,53 @@ public final class DataBootstrap {
             Files.createDirectories(dataDir.resolve("resumes"));
             for (Map.Entry<String, String> entry : BASE_HEADERS.entrySet()) {
                 Path csvPath = dataDir.resolve(entry.getKey());
-                ensureHeader(csvPath, entry.getValue());
+                if ("ta_positions.csv".equals(entry.getKey())) {
+                    ensureTaPositionHeader(csvPath);
+                } else {
+                    ensureHeader(csvPath, entry.getValue());
+                }
             }
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to initialize CSV data files", ex);
         }
+    }
+
+    private static void ensureTaPositionHeader(Path csvPath) throws IOException {
+        if (Files.notExists(csvPath)) {
+            Files.writeString(
+                    csvPath,
+                    TA_POSITIONS_HEADER + System.lineSeparator(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE_NEW
+            );
+            return;
+        }
+
+        java.util.List<String> lines = Files.readAllLines(csvPath, StandardCharsets.UTF_8);
+        if (lines.isEmpty()) {
+            Files.writeString(csvPath, TA_POSITIONS_HEADER + System.lineSeparator(), StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+            return;
+        }
+        if (TA_POSITIONS_HEADER.equals(lines.get(0))) {
+            return;
+        }
+        if (LEGACY_TA_POSITIONS_HEADER.equals(lines.get(0))) {
+            java.util.List<String> migrated = new java.util.ArrayList<>();
+            migrated.add(TA_POSITIONS_HEADER);
+            for (int i = 1; i < lines.size(); i++) {
+                java.util.List<String> cols = parseCsvLine(lines.get(i));
+                if (cols.size() == 19) {
+                    cols.add(16, "");
+                    migrated.add(encodeCsvLine(cols));
+                } else {
+                    migrated.add(lines.get(i));
+                }
+            }
+            Files.write(csvPath, migrated, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+            return;
+        }
+        lines.set(0, TA_POSITIONS_HEADER);
+        Files.write(csvPath, lines, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
     }
 
     private static void ensureHeader(Path csvPath, String header) throws IOException {
@@ -71,5 +115,41 @@ public final class DataBootstrap {
             lines.set(0, header);
             Files.write(csvPath, lines, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
         }
+    }
+
+    private static java.util.List<String> parseCsvLine(String line) {
+        java.util.List<String> fields = new java.util.ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean inQuotes = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (inQuotes) {
+                if (c == '"') {
+                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                        field.append('"');
+                        i++;
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    field.append(c);
+                }
+            } else if (c == '"') {
+                inQuotes = true;
+            } else if (c == ',') {
+                fields.add(field.toString());
+                field.setLength(0);
+            } else {
+                field.append(c);
+            }
+        }
+        fields.add(field.toString());
+        return fields;
+    }
+
+    private static String encodeCsvLine(java.util.List<String> fields) {
+        return fields.stream()
+                .map(value -> "\"" + (value == null ? "" : value.trim()).replace("\"", "\"\"") + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
     }
 }

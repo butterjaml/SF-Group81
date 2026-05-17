@@ -129,8 +129,9 @@ public class PositionService {
         if (request.headcount() <= 0) {
             throw new IllegalArgumentException("Headcount must be positive");
         }
-        validateDeadline(request.deadline());
         String status = normalizeStatus(request.status());
+        validateDeadline(request.deadline(), status);
+        AiSkillWeightFormat.validate(request.aiScreeningCriteria());
         String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         String resolvedId = (request.positionId() == null || request.positionId().isBlank())
                 ? repository.nextPositionId()
@@ -157,7 +158,7 @@ public class PositionService {
                 safe(request.mandatoryRequirements()),
                 safe(request.preferredRequirements()),
                 safe(request.bonusRequirements()),
-                safe(request.aiScreeningCriteria()),
+                AiSkillWeightFormat.normalizeOrDefault(request.aiScreeningCriteria()),
                 creator,
                 existing == null ? now : existing.createdAt(),
                 now
@@ -316,15 +317,19 @@ public class PositionService {
         return value == null ? "" : value.trim();
     }
 
-    private void validateDeadline(String deadline) {
+    private void validateDeadline(String deadline, String status) {
         String value = safe(deadline);
         if (value.isBlank()) {
             return;
         }
+        LocalDate parsed;
         try {
-            LocalDate.parse(value);
+            parsed = LocalDate.parse(value);
         } catch (Exception ex) {
             throw new IllegalArgumentException("Deadline must use YYYY-MM-DD format, for example 2026-04-15");
+        }
+        if ("PUBLISHED".equalsIgnoreCase(safe(status)) && parsed.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Published positions must use today or a future deadline so TAs can select the job");
         }
     }
 

@@ -24,6 +24,7 @@ public class TADashboardPanel extends JPanel {
                             Runnable onOpenTemporaryWork,
                             boolean showTemporaryWork,
                             Runnable onOpenEnrollment,
+                            Runnable onOpenCoursePreferences,
                             List<NotificationEntry> notifications,
                             Runnable onMarkAllNotificationsRead,
                             Consumer<NotificationEntry> onOpenNotification,
@@ -48,9 +49,10 @@ public class TADashboardPanel extends JPanel {
         content.add(notice, BorderLayout.WEST);
 
         JPanel menu = PrototypeUi.createVerticalCard();
-        menu.setLayout(new GridLayout(showTemporaryWork ? 5 : 4, 1, 0, 10));
+        menu.setLayout(new GridLayout(showTemporaryWork ? 6 : 5, 1, 0, 10));
         menu.add(createMenuButton("Job application", onBrowseJobs));
         menu.add(createMenuButton("My application", onViewStatus));
+        menu.add(createMenuButton("Course preferences", onOpenCoursePreferences));
         menu.add(createMenuButton("Interview management", onInterviewManagement));
         if (showTemporaryWork) {
             menu.add(createMenuButton("Temporary work", onOpenTemporaryWork));

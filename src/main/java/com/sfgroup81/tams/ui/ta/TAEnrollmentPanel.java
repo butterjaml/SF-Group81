@@ -95,6 +95,7 @@ public class TAEnrollmentPanel extends JPanel {
         for (TAPosition position : positions) {
             positionModel.addElement(position);
         }
+        applyHistoricalData(false);
         loadInitialSelection(preselectedPositionId);
         updateStep();
     }
@@ -129,10 +130,10 @@ public class TAEnrollmentPanel extends JPanel {
     private JPanel buildAutofillBanner() {
         JPanel banner = PrototypeUi.createCard();
         banner.setLayout(new BorderLayout(12, 12));
-        JLabel text = new JLabel("<html><b>Saved application profile found.</b> Copy your previous profile, selected positions, and resume before editing this semester's submission.</html>");
+        JLabel text = new JLabel("<html><b>Saved application profile loaded.</b> Your previous profile, selected positions, and resume were copied into this form. You can edit before submitting.</html>");
         banner.add(text, BorderLayout.CENTER);
         JButton copyButton = PrototypeUi.primaryButton("Copy Last Saved Data");
-        copyButton.addActionListener(e -> applyHistoricalData());
+        copyButton.addActionListener(e -> applyHistoricalData(true));
         banner.add(copyButton, BorderLayout.EAST);
         return banner;
     }
@@ -327,9 +328,11 @@ public class TAEnrollmentPanel extends JPanel {
         notesArea.setText(profile.notes());
     }
 
-    private void applyHistoricalData() {
+    private void applyHistoricalData(boolean showMessage) {
         if (!autofillSnapshot.hasAnyData()) {
-            JOptionPane.showMessageDialog(this, "No historical application data is available yet.");
+            if (showMessage) {
+                JOptionPane.showMessageDialog(this, "No historical application data is available yet.");
+            }
             return;
         }
         autofillSnapshot.profile().ifPresent(this::fillProfile);
@@ -353,7 +356,9 @@ public class TAEnrollmentPanel extends JPanel {
                 selectedResumePath = existingPath;
             }
         }
-        JOptionPane.showMessageDialog(this, "Previous application data copied. You can edit everything before submitting.");
+        if (showMessage) {
+            JOptionPane.showMessageDialog(this, "Previous application data copied. You can edit everything before submitting.");
+        }
     }
 
     private void updateStep() {

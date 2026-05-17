@@ -3,6 +3,7 @@ package com.sfgroup81.tams.service;
 import com.sfgroup81.tams.bootstrap.DataBootstrap;
 import com.sfgroup81.tams.model.ApplicationStatus;
 import com.sfgroup81.tams.model.TAApplication;
+import com.sfgroup81.tams.model.TAPosition;
 import com.sfgroup81.tams.model.UserRole;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
 import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
@@ -50,8 +51,8 @@ class TAFeedbackServiceTest {
                 "",
                 "U0002"
         ), "U0002");
-        positionService.savePosition(new PositionUpsertRequest(
-                "",
+        positionRepository.saveOrUpdate(new TAPosition(
+                "P0002",
                 "COMP402",
                 "Legacy Systems",
                 "MO Chen",
@@ -67,8 +68,11 @@ class TAFeedbackServiceTest {
                 "Course experience",
                 "",
                 "",
-                "U0002"
-        ), "U0002");
+                "",
+                "U0002",
+                "2026-03-01T09:00:00",
+                "2026-03-01T09:00:00"
+        ));
 
         applicationRepository.saveOrUpdate(new TAApplication(
                 "APP-U0001-P0001",

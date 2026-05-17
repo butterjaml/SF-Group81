@@ -123,6 +123,89 @@ class EnrollmentServiceTest {
     }
 
     @Test
+    void submitAgainInSameSemesterShouldKeepExistingApplicationsAndHistory() throws Exception {
+        DataBootstrap.initialize(tempDir);
+        UserCsvRepository userRepository = new UserCsvRepository(tempDir);
+        PositionCsvRepository positionRepository = new PositionCsvRepository(tempDir);
+        ApplicantProfileCsvRepository profileRepository = new ApplicantProfileCsvRepository(tempDir);
+        ResumeFileCsvRepository resumeRepository = new ResumeFileCsvRepository(tempDir);
+        TAApplicationCsvRepository applicationRepository = new TAApplicationCsvRepository(tempDir);
+        ApplicationStatusHistoryCsvRepository historyRepository = new ApplicationStatusHistoryCsvRepository(tempDir);
+
+        userRepository.saveNewUser("Alice Tan", "20250001", "alice@example.com", SecurityUtil.sha256("password123"), UserRole.TA);
+        userRepository.saveNewUser("MO Lin", "90001", "mo@example.com", SecurityUtil.sha256("password123"), UserRole.MO);
+        PositionService positionService = new PositionService(positionRepository);
+        for (String courseId : List.of("COMP301", "COMP302")) {
+            positionService.savePosition(new PositionUpsertRequest(
+                    "",
+                    courseId,
+                    courseId + " Course",
+                    "Prof. Lin",
+                    "2026S1",
+                    "Modular TA",
+                    1,
+                    LocalDate.now().plusDays(10).toString(),
+                    "PUBLISHED",
+                    courseId + " TA",
+                    "Support labs",
+                    "4 hours/week",
+                    "Base 80 yuan/hour",
+                    "Requirement",
+                    "Preferred",
+                    "",
+                    "Requirement=60; Preferred=40",
+                    "U0002"
+            ), "U0002");
+        }
+
+        EnrollmentService service = new EnrollmentService(
+                userRepository,
+                positionRepository,
+                profileRepository,
+                new ResumeUploadService(tempDir, resumeRepository, userRepository),
+                applicationRepository,
+                historyRepository,
+                new ApplicationPreferenceCsvRepository(tempDir),
+                new EnrollmentProfileSnapshotCsvRepository(tempDir),
+                AuditLogService.noop()
+        );
+
+        Path resumeFile = tempDir.resolve("alice_cv.pdf");
+        Files.writeString(resumeFile, "resume");
+        service.submit(new EnrollmentSubmission(
+                "U0001",
+                "18800001111",
+                "Computer Science",
+                "Year 3",
+                "3.82",
+                "Java",
+                "Weekdays",
+                "First submission",
+                resumeFile,
+                List.of("P0001")
+        ));
+
+        service.submit(new EnrollmentSubmission(
+                "U0001",
+                "18800001111",
+                "Computer Science",
+                "Year 3",
+                "3.82",
+                "Java",
+                "Weekdays",
+                "Second submission",
+                resumeFile,
+                List.of("P0002")
+        ));
+
+        assertEquals(2, applicationRepository.findByUserId("U0001").size());
+        assertTrue(applicationRepository.findById("APP-U0001-P0001").isPresent());
+        assertTrue(applicationRepository.findById("APP-U0001-P0002").isPresent());
+        assertEquals(1, historyRepository.findByApplicationId("APP-U0001-P0001").size());
+        assertEquals(1, historyRepository.findByApplicationId("APP-U0001-P0002").size());
+    }
+
+    @Test
     void submitShouldRejectMoreThanThreeSelectedPositions() throws Exception {
         DataBootstrap.initialize(tempDir);
         UserCsvRepository userRepository = new UserCsvRepository(tempDir);
