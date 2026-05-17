@@ -3,6 +3,7 @@ package com.sfgroup81.tams.service;
 import com.sfgroup81.tams.bootstrap.DataBootstrap;
 import com.sfgroup81.tams.model.TAPosition;
 import com.sfgroup81.tams.repository.PositionCsvRepository;
+import com.sfgroup81.tams.repository.SemesterCsvRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -156,6 +157,38 @@ class PositionServiceTest {
         IllegalArgumentException unpublishError = assertThrows(IllegalArgumentException.class,
                 () -> service.unpublish("P0002", "U0002"));
         assertEquals("Only the MO who created this position can modify it", unpublishError.getMessage());
+    }
+
+    @Test
+    void savePositionShouldRejectSemesterOutsideCurrentView() {
+        DataBootstrap.initialize(tempDir);
+        PositionCsvRepository repository = new PositionCsvRepository(tempDir);
+        SemesterService semesterService = new SemesterService(new SemesterCsvRepository(tempDir), repository, AuditLogService.noop());
+        semesterService.createAndSwitchToNewSemester("2026S2", "U0001", "Current recruitment cycle");
+        PositionService service = new PositionService(repository, semesterService, AuditLogService.noop());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.savePosition(new PositionUpsertRequest(
+                "",
+                "COMP490",
+                "Research Methods",
+                "Grace Liu",
+                "2026S1",
+                "Lead TA",
+                1,
+                LocalDate.now().plusDays(7).toString(),
+                "PUBLISHED",
+                "COMP490 Lead TA",
+                "Lead seminars",
+                "5 hours/week",
+                "Base 100 yuan/hour",
+                "Research methods background",
+                "",
+                "",
+                "U0002"
+        ), "U0002"));
+
+        assertEquals("Position semester must match the current viewed semester (2026S2)", ex.getMessage());
+        assertEquals(0, repository.findAll().size());
     }
 
     @Test

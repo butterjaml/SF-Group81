@@ -58,6 +58,7 @@ public class PositionManagePanel extends JPanel {
         setLayout(new BorderLayout());
         setBackground(PrototypeUi.PANEL_BACKGROUND);
         configureTextAreas();
+        applyDefaultSemester();
         add(PrototypeUi.createHeader("Job requirements", onBack), BorderLayout.NORTH);
 
         JPanel content = new JPanel(new BorderLayout(16, 16));
@@ -95,6 +96,13 @@ public class PositionManagePanel extends JPanel {
         )) {
             area.setLineWrap(true);
             area.setWrapStyleWord(true);
+        }
+    }
+
+    private void applyDefaultSemester() {
+        String viewedSemester = positionService.viewedSemesterId();
+        if (!viewedSemester.isBlank() && semesterIdField.getText().trim().isEmpty()) {
+            semesterIdField.setText(viewedSemester);
         }
     }
 

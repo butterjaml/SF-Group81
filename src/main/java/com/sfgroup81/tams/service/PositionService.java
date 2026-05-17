@@ -45,6 +45,10 @@ public class PositionService {
                 .toList();
     }
 
+    public String viewedSemesterId() {
+        return semesterService == null ? "" : semesterService.viewedSemesterId();
+    }
+
     public List<TAPosition> listAllSemesters() {
         closeExpiredPositions();
         return repository.findAll();
@@ -118,6 +122,7 @@ public class PositionService {
         if (request.semesterId() == null || request.semesterId().isBlank()) {
             throw new IllegalArgumentException("Semester ID is required");
         }
+        ensureMatchesViewedSemester(request.semesterId());
         if (request.positionType() == null || request.positionType().isBlank()) {
             throw new IllegalArgumentException("Position type is required");
         }
@@ -298,6 +303,13 @@ public class PositionService {
 
     private boolean isSystemOperator(String operatorUserId) {
         return "SYSTEM".equalsIgnoreCase(safe(operatorUserId));
+    }
+
+    private void ensureMatchesViewedSemester(String semesterId) {
+        String viewed = viewedSemesterId();
+        if (!viewed.isBlank() && !viewed.equalsIgnoreCase(safe(semesterId))) {
+            throw new IllegalArgumentException("Position semester must match the current viewed semester (" + viewed + ")");
+        }
     }
 
     private String safe(String value) {
