@@ -68,7 +68,10 @@ public class PositionManagePanel extends JPanel {
         content.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 24, 20, 24));
         JScrollPane formScrollPane = new JScrollPane(buildFormPanel());
         formScrollPane.setBorder(null);
-        formScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        // 改为按需显示水平滚动条，防止以后再有其他组件把界面撑到屏幕外
+        formScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        //formScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
         formScrollPane.getVerticalScrollBar().setUnitIncrement(16);
         formScrollPane.setPreferredSize(new Dimension(430, 1));
         content.add(formScrollPane, BorderLayout.WEST);
@@ -138,7 +141,9 @@ public class PositionManagePanel extends JPanel {
         addField(formPanel, gbc, row++, "Preferred requirements", areaScroll(preferredArea, 82));
         addField(formPanel, gbc, row++, "Additional requirements", areaScroll(bonusArea, 82));
         addField(formPanel, gbc, row++, "AI skill weights", areaScroll(aiCriteriaArea, 86));
-        addField(formPanel, gbc, row++, "AI format", PrototypeUi.mutedLabel("Use Skill=Weight; weights add up to 100. Default: " + AiSkillWeightFormat.DEFAULT_VALUE));
+
+        addField(formPanel, gbc, row++, "AI format", PrototypeUi.mutedLabel("<html><body style='width:220px'>Use Skill=Weight; weights add up to 100. Default: " + AiSkillWeightFormat.DEFAULT_VALUE + "</body></html>"));
+        //addField(formPanel, gbc, row++, "AI format", PrototypeUi.mutedLabel("Use Skill=Weight; weights add up to 100. Default: " + AiSkillWeightFormat.DEFAULT_VALUE));
 
         JButton saveDraftButton = PrototypeUi.secondaryButton("Save Draft");
         saveDraftButton.addActionListener(e -> save("DRAFT"));
@@ -155,6 +160,7 @@ public class PositionManagePanel extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = row + 1;
         gbc.gridwidth = 2;
+        gbc.insets = new Insets(6, 6, 24, 6);
         formPanel.add(unpublishButton, gbc);
         return formPanel;
     }

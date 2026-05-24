@@ -1,5 +1,15 @@
 package com.sfgroup81.tams.service;
 
+import com.sfgroup81.tams.model.ApplicationStatus;
+import com.sfgroup81.tams.model.TAApplication;
+import com.sfgroup81.tams.model.TAPosition;
+import com.sfgroup81.tams.repository.PositionCsvRepository;
+import com.sfgroup81.tams.repository.TAApplicationCsvRepository;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
 import com.sfgroup81.tams.model.TACategory;
 import com.sfgroup81.tams.model.User;
 import com.sfgroup81.tams.model.UserRole;
@@ -8,9 +18,15 @@ import com.sfgroup81.tams.repository.UserCsvRepository;
 import java.util.List;
 import java.util.Locale;
 
+
+
+
+
 public class UserManagementService {
     private final UserCsvRepository userRepository;
     private final AuditLogService auditLogService;
+    private final TAApplicationCsvRepository taApplicationRepository;
+    private final PositionCsvRepository positionRepository;
 
     public UserManagementService(UserCsvRepository userRepository) {
         this(userRepository, AuditLogService.noop());
@@ -19,7 +35,11 @@ public class UserManagementService {
     public UserManagementService(UserCsvRepository userRepository, AuditLogService auditLogService) {
         this.userRepository = userRepository;
         this.auditLogService = auditLogService;
+        this.taApplicationRepository = new TAApplicationCsvRepository();
+        this.positionRepository = new PositionCsvRepository();
     }
+
+    // ... 保留原有的其他方法 (listUsers, createUser 等) ...
 
     public List<User> listUsers(String keyword) {
         String normalized = safe(keyword).toLowerCase(Locale.ROOT);
@@ -156,4 +176,36 @@ public class UserManagementService {
     private String safe(String value) {
         return value == null ? "" : value.trim();
     }
+
+    public int calculateTAWorkload(String userId) {
+        int totalHours = 0;
+        List<TAApplication> applications = taApplicationRepository.findByUserId(userId);
+        for (TAApplication app : applications) {
+            // 只统计已经被雇佣 (HIRED) 的职位
+            if (app.status() == ApplicationStatus.HIRED) {
+                TAPosition pos = positionRepository.findById(app.positionId()).orElse(null);
+                if (pos != null) {
+                    totalHours += extractHours(pos.workingHours());
+                }
+            }
+        }
+        return totalHours;
+    }
+
+    // 辅助方法：从类似 "10 hours/week" 的字符串中提取数字
+    private int extractHours(String workingHoursStr) {
+        if (workingHoursStr == null || workingHoursStr.isBlank()) {
+            return 0;
+        }
+        Matcher m = Pattern.compile("\\d+").matcher(workingHoursStr);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group());
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
 }
+

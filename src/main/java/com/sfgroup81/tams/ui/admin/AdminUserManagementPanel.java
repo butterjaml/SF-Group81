@@ -53,7 +53,7 @@ public class AdminUserManagementPanel extends JPanel {
 
     private final JTextField searchField = new JTextField(18);
     private final DefaultTableModel userTableModel = new DefaultTableModel(
-            new Object[]{"User ID", "Name", "Email", "Role", "Category", "Status", "Last Login"}, 0
+            new Object[]{"User ID", "Name", "Email", "Role", "Category", "Status", "Workload", "Last Login"}, 0
     ) {
         @Override
         public boolean isCellEditable(int row, int column) {
@@ -260,6 +260,11 @@ public class AdminUserManagementPanel extends JPanel {
         displayedUsers = new ArrayList<>(userManagementService.listUsers(searchField.getText()));
         userTableModel.setRowCount(0);
         for (User user : displayedUsers) {
+            // 如果是 TA 就计算工时，否则显示 "-"
+            String workload = user.role() == UserRole.TA
+                    ? userManagementService.calculateTAWorkload(user.userId()) + " hrs"
+                    : "-";
+
             userTableModel.addRow(new Object[]{
                     user.userId(),
                     user.name(),
@@ -267,6 +272,7 @@ public class AdminUserManagementPanel extends JPanel {
                     user.role(),
                     user.taCategory(),
                     user.status(),
+                    workload, // 新增的 Workload 列数据
                     user.lastLoginAt().isBlank() ? "-" : user.lastLoginAt()
             });
         }
@@ -284,6 +290,11 @@ public class AdminUserManagementPanel extends JPanel {
             detailArea.setText("");
             return;
         }
+
+        String workloadStr = user.role() == UserRole.TA
+                ? userManagementService.calculateTAWorkload(user.userId()) + " hrs"
+                : "N/A";
+
         detailArea.setText("""
                 User Details
 
@@ -294,6 +305,7 @@ public class AdminUserManagementPanel extends JPanel {
                 Role: %s
                 TA Category: %s
                 Status: %s
+                Current Workload: %s
                 Last Login: %s
                 """.formatted(
                 user.name(),
@@ -303,8 +315,10 @@ public class AdminUserManagementPanel extends JPanel {
                 user.role(),
                 user.taCategory(),
                 user.status(),
+                workloadStr, // 插入计算出的工作量
                 user.lastLoginAt().isBlank() ? "-" : user.lastLoginAt()
         ));
+
         editRoleCombo.setSelectedItem(user.role());
         editCategoryCombo.setSelectedItem(user.taCategory());
         toggleStatusButton.setText("ACTIVE".equalsIgnoreCase(user.status()) ? "Disable Account" : "Enable Account");

@@ -106,17 +106,26 @@ public final class PrototypeUi {
     }
 
     public static void stylePrimaryButton(JButton button) {
+        // 【关键修复1】：剥离系统原生UI样式，强制接管背景和文字颜色渲染
+        button.setUI(new javax.swing.plaf.basic.BasicButtonUI());
         button.setBackground(HEADER_BLUE);
         button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
+        button.setOpaque(true);
+        // 【关键修复2】：将上下的 Padding 从 10 缩小到 6，给文字留足生存空间
+        button.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
     }
 
     public static void styleSecondaryButton(JButton button) {
+        // 同样剥离系统原生UI样式
+        button.setUI(new javax.swing.plaf.basic.BasicButtonUI());
         button.setBackground(Color.WHITE);
         button.setForeground(HEADER_BLUE);
-        button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createLineBorder(HEADER_BLUE));
+        button.setOpaque(true);
+        // 将内部 Padding 从 10 缩小到 6
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(HEADER_BLUE, 1),
+                BorderFactory.createEmptyBorder(6, 12, 6, 12)
+        ));
     }
 
     public static void addVerticalGap(JPanel panel, int height) {

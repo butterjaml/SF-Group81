@@ -1,4 +1,4 @@
-user_id,phone,major,year_of_study,gpa,skills,availability,notes,updated_at
+user_id,semester_id,phone,major,year_of_study,gpa,skills,availability,notes,updated_at
 U0004,18800001111,Computer Science,Year 3,3.86,Java; Selenium; tutoring,Weekday afternoons,Interested in quality engineering,2026-04-03T09:50:00
 U0005,18800002222,Software Engineering,Year 2,3.52,Java; Excel; event support,Weekends and evenings,Open to admin support tasks,2026-03-25T13:30:00
 U0006,18800003333,Computer Science,Year 4,3.91,Python; ML; public speaking,Flexible on weekdays,Strong interest in project mentoring,2026-04-09T11:00:00
